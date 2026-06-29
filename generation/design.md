@@ -216,27 +216,44 @@ Completion gate:
 - If time, context, or tooling prevents expansion, write `generation/review.md` with status `INCOMPLETE`, list every failing reference, and stop. Do not create a final-sounding summary that says the skill was rebuilt.
 - "Substantially more useful than before" is not a pass condition.
 
-Each topical reference must include several examples and sections where they are useful. Use as many as needed to make the reference practical, while keeping the file focused and context-efficient:
+Use the required topical reference template below. Within that structure, each topical reference must deliver:
 
-- When to read it.
-- Generation provenance is recorded in `generation/review.md`, not in this reference.
-- Key official wiki/doc guidance.
-- Synthesized rules and task-focused takeaways before raw excerpts.
-- Concrete examples from docs when useful.
-- Common mistakes and traps.
-- Relevant APIs, with enough signatures to code safely.
-- Search terms for follow-up lookup.
-- Direct code, config, project-layout, or command examples where the generation sources support them. Include multiple examples when a topic has multiple common workflows or failure-prone patterns.
-
-For each required topical reference, include at least:
-
-- A short table of contents or search-term block near the top.
-- No raw-source `Sources Used` section. Exact raw wiki/sample/API files used must be listed under this reference's provenance entry in `generation/review.md`.
+- Key official wiki/doc guidance, with synthesized task-focused takeaways before any excerpt.
 - At least three task-focused guidance sections unless the topic is genuinely narrow.
-- At least one "Common traps" or "Review checklist" section.
-- At least one direct example block or explicit "No direct example included because..." note.
-- API lookup notes that point to `api-main.md` and `api-extended.md` for any uncertain method/class.
-- No local raw paths, raw file references, or instructions to open `raw/`.
+- Concrete examples from docs or official samples when useful.
+- At least one direct code, config, command, or project-layout example, or an explicit "No direct example included because..." note.
+- Common mistakes, traps, or review checks.
+- Relevant APIs, with enough signatures or lookup targets to code safely.
+- Follow-up search terms and lookup routing to `api-main.md` and `api-extended.md` for uncertain methods/classes.
+- Source-family labels only; exact local provenance belongs in `generation/review.md`.
+
+Required topical reference template:
+
+```markdown
+# <Reference Title>
+
+Search terms: <task terms, API names, file/data names>
+
+## When To Read This
+
+## Source Coverage Summary
+
+## Core Rules
+
+## Workflows
+
+## Examples
+
+## API Notes
+
+## Common Traps
+
+## Review Checklist
+
+## Follow-Up Lookup
+```
+
+Use this template as the default shape for every topical reference. Rename sections only when the topic clearly needs a better domain-specific label, but keep the same functional coverage. `overview.md`, `api-main.md`, and `api-extended.md` may use specialized structures, but they still need search terms, review guidance, and lookup routing where applicable.
 
 Line count alone is not sufficient. A 300-line file made of copied source noise, repeated bullets, or generic advice is not acceptable. Conversely, a shorter file can be acceptable only when it is dense, source-grounded, and `generation/review.md` explains why more detail would be padding.
 
@@ -679,41 +696,60 @@ Include:
 - Any suspected gaps.
 - Manual review items.
 
+Required source coverage map format:
+
+| Source or source group | Assigned reference | Actionable content retained | Examples retained | Deferred lookup | Omitted content | Omission reason |
+| --- | --- | --- | --- | --- | --- | --- |
+
+Rules for this table:
+
+- Use exact source paths only in `generation/review.md`, not runtime references.
+- Include every source document, sample group, and API domain that materially influenced a reference.
+- Use `none` rather than leaving a cell blank.
+- `Omitted content` must be limited to non-actionable prose, duplicate material, screenshots/navigation, obsolete/conflicting material, or exhaustive lookup data available in `api-extended.md`.
+- If the omission reason is `too large`, the rebuild is incomplete unless the omitted material is exhaustive API lookup data or non-actionable bulk asset/config data.
+
 `generation/review.md` is for auditing only. Do not use it as source material in later generations.
+
+## Forward-Test Prompts
+
+After references, `SKILL.md`, and review are written, run or simulate coding-focused forward tests against a temporary throwaway fixture. These tests should produce code or config diffs that can be reviewed with grep/API checks; do not use vague research prompts or tasks that require launching Workbench/game runtime.
+
+Required forward-test prompts:
+
+1. "Use the Reforger skill to add a minimal `ScriptComponent` and matching `ScriptComponentClass` with one editable prefab/resource field and a guarded `EOnInit` debug print."
+2. "Use the Reforger skill to add a component method that moves its owner entity to a supplied vector, verifying the exact `IEntity` transform/origin APIs before writing code."
+3. "Use the Reforger skill to add a user-action script patterned after official sample user actions, with uncertain APIs clearly marked for project verification."
+4. "Use the Reforger skill to add a small replicated/RPC component skeleton that separates authority-side state changes from client-side calls and marks every RPC attribute/signature that needs project verification."
+5. "Use the Reforger skill to add a Workbench plugin command skeleton that uses the documented Workbench plugin attribute shape and checks editor-only API usage."
+6. "Use the Reforger skill to add a config/prefab reference field example using `ResourceName` and explain whether the task is script-first or data-first."
+
+Forward-test review requirements:
+
+- Record each prompt in `generation/review.md` with `PASS`, `FAIL`, or `NOT RUN`.
+- For each test, list the references opened, APIs checked, generated files or diff summary, and review result.
+- A test passes only if the output uses routed references, checks uncertain APIs in `api-main.md` or `api-extended.md`, labels uncertainty instead of inventing signatures, and produces reviewable code/config text.
+- If tests are not run because the generation pass is only updating design or audit tooling, state that explicitly. A full rebuild cannot be marked complete unless the forward tests are run or a user explicitly waives them.
 
 ## Validation
 
 Before finishing generation:
 
 - Re-read "Non-Negotiable Build Contract", "Generation Boundary", "Generation Workflow", and this "Validation" section.
-- Confirm every reference in `SKILL.md` exists.
-- Confirm no required reference is merely a stub, outline, short placeholder, or high-level summary when source material exists.
-- Confirm each required reference satisfies the Reference Strategy completeness checklist. If not, expand it before finishing or mark the generation `INCOMPLETE`.
-- Confirm each required reference has a source coverage map in `generation/review.md` and that every assigned source document's actionable content is preserved, summarized with rationale, deferred to API lookup, or intentionally omitted with rationale.
-- Confirm references preserve actionable details from source docs, not just topic labels, representative examples, or broad summaries.
-- Confirm required topical references are normally 300-900 lines, with topic-specific sparse-source review justification for any shorter file.
-- Confirm `common-task-recipes.md`, `examples-patterns.md`, and `api-main.md` are substantial central references, not thin routing files. Under 200 nonblank lines is a failure unless specifically justified by sparse source material.
-- Confirm references were generated from raw wiki/docs as the highest-priority source, but do not contain raw paths.
-- Confirm official samples are used as examples only, not as rule authority over docs/API data.
-- Confirm API signatures come from raw game data and that exact raw API provenance is recorded in `generation/review.md`.
+- Confirm every reference linked from `SKILL.md` exists and every required reference from this design is linked or intentionally excluded with review rationale.
+- Confirm every required reference satisfies the Reference Strategy gates: template coverage, line-depth target, actionable detail retention, source-family labeling, examples, traps/review checks, API notes, and follow-up lookup routing.
+- Confirm `generation/review.md` contains the required completeness table, source coverage maps, actionable-detail retention notes, exact generation provenance, and status line.
+- Confirm source authority was respected: wiki/docs first, samples as examples only, and game API data for exact signatures.
 - Confirm no generated output used old generated references or old `SKILL.md` as source.
 - Confirm no deterministic script generated topical references, `api-main.md`, `SKILL.md`, or `generation/review.md`.
-- Confirm `api-main.md` is compact and curated.
-- Confirm `api-main.md` includes the mandatory common API coverage or records explicit gaps.
-- Confirm `api-extended.md` is exhaustive and searchable.
-- Confirm `common-task-recipes.md` exists and includes all required recipes.
-- Confirm direct examples are present in scripting-heavy and task-recipe references where generation sources support them.
-- Confirm examples are additive and do not replace official guidance, gotchas, or API notes.
-- Confirm non-script references include useful config, path-layout, command, or project-layout examples where generation sources support them.
-- Confirm every code/config example has a source label, but no local `raw/` path.
+- Confirm `api-main.md`, `api-extended.md`, `common-task-recipes.md`, and `examples-patterns.md` meet their special coverage requirements.
+- Confirm examples are additive, source-labeled, and do not replace official guidance, gotchas, or API notes.
 - Confirm uncertain example APIs are marked `example-observed`, `generated-pattern-from-docs`, or `pseudocode` with verification notes.
 - Confirm references render as clean Markdown for GitHub review: no broken tables, malformed headings, raw HTML, raw navigation text, or unfenced code blocks.
 - Confirm empty wiki pages are absent or flagged.
-- Confirm scripting references are the richest references.
-- Confirm API lookup routing is topical reference, then `api-main.md`, then `api-extended.md`.
-- Confirm large references include search terms or a short table of contents.
 - Confirm `SKILL.md` includes grep/search guidance for `api-extended.md` and `api-main.md`, but does not mention `raw/` paths.
 - Confirm `agents/openai.yaml` exists or is intentionally skipped, and matches the generated `SKILL.md`.
+- Run the coding-focused forward-test prompts or record an explicit user waiver in `generation/review.md`.
 - Run `py -3 scripts\audit-references.py` and fix every reported failure before claiming completion.
 - Run the available skill validation tool if present, then fix any reported metadata or structure issues. Record this separately from the design completeness audit.
 
@@ -727,6 +763,7 @@ Hard stop rules:
 - If `generation/review.md` does not list exact raw source provenance per reference, the generation is not complete.
 - If `common-task-recipes.md` is missing any required recipe, the generation is not complete.
 - If `examples-patterns.md` does not inventory every official sample mod, the generation is not complete.
+- If a full rebuild lacks forward-test results or an explicit user waiver, the generation is not complete.
 - If `scripts/audit-references.py` fails, the generation is not complete.
 
 Suggested local audit commands:

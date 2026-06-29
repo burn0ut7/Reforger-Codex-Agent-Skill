@@ -14,7 +14,7 @@ It is intended for:
 - Giving practical advice for entities, components, networking, prefabs, configs, Workbench, scenarios, terrain, assets, weapons, vehicles, audio, animation, servers, and Workshop packaging.
 - Looking up APIs from extracted game script data instead of relying only on model memory.
 
-It is not intended to blindly generate large amounts of throwaway code. The goal is grounded help: concepts, review, small correct changes, examples, and API-aware guidance.
+It is not intended to blindly generate large amounts of SLOP code. The goal is grounded help: concepts, review, small correct changes, examples, and API-aware guidance.
 
 ## Why
 
