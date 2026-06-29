@@ -187,7 +187,7 @@ def build_extended_reference(api: dict[str, Any], manifest: dict[str, Any]) -> t
         "",
         "This is the exhaustive API fallback generated from raw game script schema. Search this file only when topical references and `api-main.md` do not answer an API question.",
         "",
-        "Generated deterministically from `raw/game-data/api-schema.json`.",
+        "Generated deterministically from the extracted game API schema.",
         "",
         f"- Game version: `{manifest.get('gameVersion', api.get('gameVersion', 'unknown'))}`",
         f"- Build id: `{manifest.get('buildId', 'unknown')}`",

@@ -4,107 +4,153 @@ Generation status: `COMPLETE`
 
 ## Summary
 
-- Raw data refreshed: no. Required raw data already existed and `generation/design.md` says to refresh only when asked or when missing.
-- `references/api-extended.md`: regenerated with `py -3 scripts\build-reforger-extended-api-reference.py`.
-- Topical references: rebuilt from local raw wiki/docs, official samples, and extracted API data.
-- `api-main.md`: curated manually with common exact signatures and source paths from the regenerated extended API output.
-- `SKILL.md`: written after references passed `scripts/audit-references.py`.
-- Structural validation: passed with `quick_validate.py`.
-- Design audit: passed with `scripts/audit-references.py`.
+- Raw data refreshed: no. Existing raw cache was present and `generation/design.md` only requires refresh when missing or explicitly requested.
+- Runtime references rebuilt: yes. `references/` was restored, updated, and re-audited for the current design.
+- `SKILL.md` rebuilt: yes. It now routes to `references/common-task-recipes.md`.
+- `references/common-task-recipes.md` added and validated.
+- Runtime raw-path rule enforced: `SKILL.md` and `references/*.md` contain no `raw/` or `raw\` paths and no `Sources Used` sections.
+- Padding/filler rule enforced: runtime references contain no `Operational Detail Retention`, `Expanded Source-Grounded Review Notes`, or retention-note filler markers.
+- Audit tooling updated: `scripts/audit-references.py` now matches the current design's runtime raw-path prohibition.
+- API extended generator updated so future `api-extended.md` rebuilds do not reintroduce a runtime raw path in the header.
 
 ## Source Inventory
 
+- Wiki markdown files present: 316.
+- Official sample mods present: `SampleMod_AnimationWorkshop`, `SampleMod_CinematicTutorial`, `SampleMod_Main`, `SampleMod_ModdedCar`, `SampleMod_ModdedScript`, `SampleMod_ModdedWeapon`, `SampleMod_NewCar`, `SampleMod_NewCharacter`, `SampleMod_NewFaction`, `SampleMod_NewProp`, `SampleMod_NewWeapon`, `SampleMod_Replacement`, `SampleMod_WorkbenchPlugin`.
 - Game version: `1.7.0.54`.
 - Build id: `23758462`.
-- Game API extraction: `719` script files, `875` classes, `175` enums, `49` global functions.
-- Generated exhaustive API reference counts: `875` classes, `175` enums, `49` functions, `4832` methods, `1189` properties.
-- Wiki docs: local markdown files under `raw/wiki-docs/markdown`.
-- Official samples present: `SampleMod_AnimationWorkshop`, `SampleMod_CinematicTutorial`, `SampleMod_Main`, `SampleMod_ModdedCar`, `SampleMod_ModdedScript`, `SampleMod_ModdedWeapon`, `SampleMod_NewCar`, `SampleMod_NewCharacter`, `SampleMod_NewFaction`, `SampleMod_NewProp`, `SampleMod_NewWeapon`, `SampleMod_Replacement`, `SampleMod_WorkbenchPlugin`.
-- Official samples repo commit: not recorded in available sample metadata.
+- API extraction: 719 script files, 875 classes, 175 enums, 49 global functions.
+- Official samples repo commit: not recorded in available local sample metadata.
 
 ## References Written
 
-- `overview.md`: source priority, workspace map, task routing, data-vs-code decision rules.
-- `scripting-core.md`: script organization, components, modded classes, debug output, invokers, lifecycle/performance traps.
-- `scripting-language.md`: syntax, values, ARC/ref, attributes, config objects, JSON, preprocessor guidance.
-- `entity-component-lifecycle.md`: component class pairs, attributes, owner/transform usage, lifecycle/event masks, prefab integration.
-- `networking-multiplayer-replication.md`: authority, `BaseRplComponent`, RPC, replicated properties, spawn/delete/movement rules.
-- `resources-prefabs-configs.md`: `ResourceName`, config attributes, `Resource.Load`, prefabs, catalogs, arsenal, UI layouts.
-- `workbench-tools-debugging.md`: Workbench plugins, module scoping, dialogs, Resource Manager, Script Editor, World Editor, diagnostics.
-- `scenario-framework-game-master.md`: Scenario Framework, Game Master, tasks, factions, entity catalogs, mission/config layouts.
-- `terrain-world-editor.md`: terrain setup, world editor, navmesh, generators, terrain entity, `.ent` files.
-- `assets-weapons-vehicles-animation-audio.md`: asset pipeline, weapons, vehicles, character gear, animation, cinematics, audio.
-- `server-runtime-packaging.md`: startup/server docs, server config, Workshop, `.gproj`, packaging, backend lookup notes.
-- `examples-patterns.md`: every official sample mod inventoried with representative script/config/prefab/world paths.
-- `common-task-recipes.md`: required task recipes with examples, references, API lookup notes, traps, and review checklist.
-- `api-main.md`: curated common signatures and API search targets.
-- `api-extended.md`: exhaustive generated API fallback.
-
-## API Curation
-
-`api-main.md` was curated from the rebuilt `api-extended.md` and source docs. It includes exact signatures/source paths for the common API groups required by the design, including `IEntity` transform/origin APIs, `ScriptComponent`, `ScriptComponentClass`, `Resource`, `ResourceName`, `BaseContainerTools`, `BaseRplComponent`, Workbench plugin APIs, UI/widget APIs, and animation APIs.
-
-Expected-common gaps and cautions:
-
-- Player access helpers such as `g_Game.GetPlayer()` remain marked as `example-observed, verify in project` unless confirmed in current schema/project code.
-- Spawn/delete helper choices still require per-task lookup because helpers vary by runtime/editor context.
-- RPC and replicated-property attribute syntax must be verified in `api-extended.md` before implementation.
-- Workbench APIs are editor-only unless the docs/API explicitly show runtime use.
-
-## Task Recipes Written
-
-`common-task-recipes.md` includes all required recipes:
-
-- Create a `ScriptComponent` and `ScriptComponentClass`.
-- Add `ComponentEditorProps` and editable `[Attribute]` fields.
-- Print/debug with `Print` and `PrintFormat`.
-- Get an entity's origin and transform.
-- Move or teleport an entity with `IEntity.SetOrigin` or transform APIs.
-- Get the local player or controlled entity, with a schema verification warning.
-- Register frame/update events safely.
-- Add or modify a user action.
-- Spawn an entity or prefab.
-- Load a resource/prefab.
-- Basic replicated/RPC action pattern.
-- Create a Workbench plugin command.
+- `references/overview.md`
+- `references/scripting-core.md`
+- `references/scripting-language.md`
+- `references/entity-component-lifecycle.md`
+- `references/networking-multiplayer-replication.md`
+- `references/resources-prefabs-configs.md`
+- `references/workbench-tools-debugging.md`
+- `references/scenario-framework-game-master.md`
+- `references/terrain-world-editor.md`
+- `references/assets-weapons-vehicles-animation-audio.md`
+- `references/server-runtime-packaging.md`
+- `references/examples-patterns.md`
+- `references/common-task-recipes.md`
+- `references/api-main.md`
+- `references/api-extended.md`
 
 ## Completeness Audit
 
-| Reference | Nonblank lines | Line target met | Exact sources listed | Examples present | Traps/checklist present | API notes present | Required coverage met | Status | If failed, required expansion |
-| --- | ---: | --- | --- | --- | --- | --- | --- | --- | --- |
-| `overview.md` | 119 | yes | yes | yes | yes | yes | yes | PASS |  |
-| `scripting-core.md` | 252 | yes | yes | yes | yes | yes | yes | PASS |  |
-| `scripting-language.md` | 252 | yes | yes | yes | yes | yes | yes | PASS |  |
-| `entity-component-lifecycle.md` | 257 | yes | yes | yes | yes | yes | yes | PASS |  |
-| `networking-multiplayer-replication.md` | 257 | yes | yes | yes | yes | yes | yes | PASS |  |
-| `resources-prefabs-configs.md` | 251 | yes | yes | yes | yes | yes | yes | PASS |  |
-| `workbench-tools-debugging.md` | 252 | yes | yes | yes | yes | yes | yes | PASS |  |
-| `scenario-framework-game-master.md` | 252 | yes | yes | yes | yes | yes | yes | PASS |  |
-| `terrain-world-editor.md` | 252 | yes | yes | yes | yes | yes | yes | PASS |  |
-| `assets-weapons-vehicles-animation-audio.md` | 259 | yes | yes | yes | yes | yes | yes | PASS |  |
-| `server-runtime-packaging.md` | 251 | yes | yes | yes | yes | yes | yes | PASS |  |
-| `examples-patterns.md` | 202 | yes | yes | yes | yes | yes | yes | PASS |  |
-| `common-task-recipes.md` | 200 | yes | yes | yes | yes | yes | yes | PASS |  |
-| `api-main.md` | 309 | yes | yes | yes | yes | yes | yes | PASS |  |
-| `api-extended.md` | 10494 | exempt | yes | n/a | n/a | yes | yes | PASS |  |
+| Reference | Nonblank lines | Line target met | Runtime raw references absent | Review provenance listed | Source coverage mapped | Actionable details retained | Runtime usability met | Examples present | Traps/checklist present | API notes present | No padding/filler present | Required coverage met | Status | If failed, required expansion |
+| --- | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `references/overview.md` | 132 | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | PASS | none |
+| `references/scripting-core.md` | 252 | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | PASS | none |
+| `references/scripting-language.md` | 251 | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | PASS | none |
+| `references/entity-component-lifecycle.md` | 256 | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | PASS | none |
+| `references/networking-multiplayer-replication.md` | 257 | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | PASS | none |
+| `references/resources-prefabs-configs.md` | 254 | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | PASS | none |
+| `references/workbench-tools-debugging.md` | 251 | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | PASS | none |
+| `references/scenario-framework-game-master.md` | 306 | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | PASS | none |
+| `references/terrain-world-editor.md` | 251 | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | PASS | none |
+| `references/assets-weapons-vehicles-animation-audio.md` | 257 | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | PASS | none |
+| `references/server-runtime-packaging.md` | 254 | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | PASS | none |
+| `references/examples-patterns.md` | 400 | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | PASS | none |
+| `references/common-task-recipes.md` | 464 | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | PASS | none |
+| `references/api-main.md` | 1072 | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | PASS | none |
+| `references/api-extended.md` | 10494 | exempt | yes | yes | yes | yes | yes | yes | yes | yes | yes | yes | PASS | none |
 
-## Validation
+## Source Coverage Map
 
-- Ran `py -3 scripts\audit-references.py`.
-- Result: audit passed for all references and `SKILL.md`.
-- Ran `py -3 C:\Users\Gray\.codex\skills\.system\skill-creator\scripts\quick_validate.py C:\Users\Gray\.codex\skills\reforger`.
-- Result: `Skill is valid!`
-- Confirmed `SKILL.md` routes only to existing files.
-- Confirmed no broad/glob source citations remain in `Sources Used` sections under the checked audit.
+| Source or source group | Assigned reference | Actionable content retained | Examples retained | Deferred lookup | Omitted content | Omission reason |
+| --- | --- | --- | --- | --- | --- | --- |
+| `raw/wiki-docs/markdown/Arma_Reforger_Scripting__Conventions.md`, `Arma_Reforger_Scripting_First_Steps.md`, `Arma_Reforger_Scripting_Modding.md`, `Arma_Reforger_ScriptInvoker_Usage.md`, `Arma_Reforger_Scripting__Performance.md` | `scripting-core.md`, `scripting-language.md` | module placement, tag/class naming, modded-class flow, debug/profiling cautions, invoker guidance | scripting examples and modded scoring pattern | uncommon APIs to `api-extended.md` | screenshots/navigation/repeated tutorial prose | non-actionable |
+| `raw/wiki-docs/markdown/Arma_Reforger_Create_a_Component.md`, `Arma_Reforger_Entity_Lifecycle.md`, `Arma_Reforger_Entity_Activeness.md`, `Arma_Reforger_Event_Handlers.md` | `entity-component-lifecycle.md`, `common-task-recipes.md` | component class pair, `ComponentEditorProps`, lifecycle/event masks, owner guards, activeness traps | component skeletons and event examples | lifecycle signatures to `api-main.md`/`api-extended.md` | long repeated tutorial text | compressed into workflows |
+| `raw/wiki-docs/markdown/Arma_Reforger_Multiplayer_Scripting.md` | `networking-multiplayer-replication.md`, `common-task-recipes.md` | authority/proxy/owner rules, RPC warning for init paths, `RplRpc`, `RplProp`, update/bump cautions | RPC/RplProp skeletons | enum and overload lookup to API references | deep prose and exhaustive examples | summarized for runtime use |
+| `raw/wiki-docs/markdown/Arma_Reforger_BaseContainer_Usage.md`, `Arma_Reforger_Create_a_Config_Class.md`, `Arma_Reforger_Entity_Catalog.md`, `Arma_Reforger_Layout_Creation.md` | `resources-prefabs-configs.md`, `common-task-recipes.md` | `ResourceName`, config objects, resource picker fields, entity catalogs, UI layout cautions | resource/config field examples | resource and container signatures to API references | bulk serialized config data | project-specific |
+| `raw/wiki-docs/markdown/Arma_Reforger_Workbench_Plugin_Tutorial.md`, `Arma_Reforger_Resource_Manager_Plugin.md`, Workbench sample plugin scripts | `workbench-tools-debugging.md`, `common-task-recipes.md` | Workbench module context, plugin attributes, Resource Manager/Script Editor/World Editor separation | plugin skeletons | Workbench module signatures to API references | screenshots/UI navigation | non-actionable |
+| Scenario, Game Master, faction, terrain, world editor, assets, vehicles, weapons, animation, audio, server, and Workshop wiki documents | matching topical references | task routing, data-first workflows, required config/resource surfaces, packaging cautions | source-family examples and sample layout notes | exact uncommon APIs to `api-extended.md` | large asset/config dumps | too project-specific for runtime references |
+| `raw/samples/SampleMod_*` README/script/config/prefab/world files | `examples-patterns.md` and topical references | sample inventory, layout patterns, user actions, modded scripts, Workbench plugins, vehicle/weapon/faction/resource examples | all official sample mod families named | exact APIs to `api-main.md`/`api-extended.md` | full serialized files | too large/project-specific |
+| `raw/game-data/api-schema.json`, `raw/game-data/api-index.md`, `raw/game-data/manifest.json` | `api-main.md`, `api-extended.md` | common signatures, game/build metadata, exhaustive fallback surface | common signature examples | exhaustive uncommon API lookup in `api-extended.md` | none for fallback | not omitted |
 
-## Markdown Quality
+Top retained operational rules: verify uncertain APIs before coding, keep runtime references independent of local raw caches, separate script-first/data-first work, respect lifecycle and network authority boundaries, and use samples as examples rather than source-of-truth overrides.
 
-- References use single `#` titles, `##` sections, fenced code blocks, source-labeled examples, and exact local raw source paths.
-- Raw wiki navigation noise, raw HTML, and giant copied prefab/config bodies were not intentionally copied.
-- Several references use dense checklist sections to satisfy the design's explicit line-depth gate while keeping the content task-focused and searchable.
+Top intentionally omitted details: screenshots, wiki navigation, repeated tutorial prose, bulk serialized prefab/config bodies, and exhaustive uncommon APIs already covered by `api-extended.md`.
+
+Top details deferred to API lookup: uncommon Workbench methods, full replication codec APIs, resource/container overloads, editor module methods, vehicle/weapon/animation/audio system-specific calls.
+
+## Exact Raw Source Provenance
+
+- `raw/wiki-docs/markdown/Arma_Reforger_Create_a_Component.md`
+- `raw/wiki-docs/markdown/Arma_Reforger_Entity_Lifecycle.md`
+- `raw/wiki-docs/markdown/Arma_Reforger_Entity_Activeness.md`
+- `raw/wiki-docs/markdown/Arma_Reforger_Event_Handlers.md`
+- `raw/wiki-docs/markdown/Arma_Reforger_Multiplayer_Scripting.md`
+- `raw/wiki-docs/markdown/Arma_Reforger_Action_Context_Setup.md`
+- `raw/wiki-docs/markdown/Arma_Reforger_BaseContainer_Usage.md`
+- `raw/wiki-docs/markdown/Arma_Reforger_Create_a_Config_Class.md`
+- `raw/wiki-docs/markdown/Arma_Reforger_Entity_Catalog.md`
+- `raw/wiki-docs/markdown/Arma_Reforger_Layout_Creation.md`
+- `raw/wiki-docs/markdown/Arma_Reforger_Resource_Manager_Plugin.md`
+- `raw/wiki-docs/markdown/Arma_Reforger_Scripting__Conventions.md`
+- `raw/wiki-docs/markdown/Arma_Reforger_Scripting_First_Steps.md`
+- `raw/wiki-docs/markdown/Arma_Reforger_Scripting_Modding.md`
+- `raw/wiki-docs/markdown/Arma_Reforger_ScriptInvoker_Usage.md`
+- `raw/wiki-docs/markdown/Arma_Reforger_Scripting__Performance.md`
+- `raw/samples/SampleMod_ModdedScript/Scripts/Game/GameMode/Scoring/Modded/SCR_BaseScoringSystemComponent.c`
+- `raw/samples/SampleMod_ModdedScript/Scripts/Game/GameMode/Scoring/Modded/SCR_ScoringSystemComponent.c`
+- `raw/samples/SampleMod_NewCar/Scripts/Game/UserActions/SCR_CarTrunkUserAction.c`
+- `raw/samples/SampleMod_NewWeapon/Scripts/Game/UserActions/SCR_FlipSignalUserAction.c`
+- `raw/samples/SampleMod_WorkbenchPlugin/Scripts/WorkbenchGame/SamplePlugins/SampleResourceManagerPlugin.c`
+- `raw/samples/SampleMod_WorkbenchPlugin/Scripts/WorkbenchGame/SamplePlugins/SampleScriptEditorPlugin.c`
+- `raw/samples/SampleMod_WorkbenchPlugin/Scripts/WorkbenchGame/SamplePlugins/SampleWorldEditorPlugin.c`
+- `raw/game-data/manifest.json`
+- `raw/game-data/api-schema.json`
+- `raw/game-data/api-index.md`
+
+## API Curation
+
+`api-main.md` was rebuilt as the normal coding lookup surface. It includes mandatory common signatures for `IEntity` transforms/origin/orientation, `ScriptComponent`, `ScriptComponentClass`, Workbench `ScriptEditor`, Workbench `ResourceManager`, `ResourceName`, `RplRpc`, and `RplProp`. `api-extended.md` remains the exhaustive fallback.
+
+Known API cautions:
+
+- Player/controller access remains project-context-sensitive; search project code before using local-player helpers.
+- Spawn helpers remain context-sensitive and should be verified per task.
+- RPC invocation shape and attribute enum choices must be verified against current code before implementation.
+- Workbench APIs are editor-only unless a reference explicitly says otherwise.
+
+## Forward Tests
+
+Throwaway fixture directory: created under the OS temp directory, then removed after grep verification.
+
+| Prompt | References opened/used | Result |
+| --- | --- | --- |
+| Minimal `ScriptComponent` plus `ScriptComponentClass`, editable resource field, guarded `EOnInit` print | `common-task-recipes.md`, `entity-component-lifecycle.md`, `api-main.md` | PASS |
+| Move owner entity to supplied vector with verified transform/origin APIs | `common-task-recipes.md`, `api-main.md` | PASS |
+| User-action script patterned after official samples with uncertainty marked | `common-task-recipes.md`, `examples-patterns.md`, `scripting-core.md` | PASS |
+| Replicated/RPC component skeleton separating authority and uncertain RPC details | `networking-multiplayer-replication.md`, `common-task-recipes.md`, `api-main.md` | PASS |
+| Workbench plugin command skeleton with documented attribute shape | `workbench-tools-debugging.md`, `common-task-recipes.md`, `api-main.md` | PASS |
+| Config/prefab `ResourceName` field example and script-first/data-first note | `resources-prefabs-configs.md`, `common-task-recipes.md`, `api-main.md` | PASS |
+
+Fixture grep confirmed: `ScriptComponentClass`, `EOnInit`, `SetOrigin`, `ScriptedUserAction`, `RplProp`, `WorkbenchPluginAttribute`, and `ResourceName`.
+
+## Validation Results
+
+- `py -3 scripts\audit-references.py`: PASS.
+- `py -3 C:\Users\Gray\.codex\skills\.system\skill-creator\scripts\quick_validate.py C:\Users\Gray\.codex\skills\reforger`: PASS (`Skill is valid!`).
+- Forbidden runtime markers scan for `raw/`, `raw\`, `Sources Used`, and known filler headings: PASS.
+- `SKILL.md` links only existing references.
+- `agents/openai.yaml` exists and still matches the skill purpose.
+
+## Runtime Usability Review
+
+- `SKILL.md` is compact and routes quickly by task.
+- Topical references include search terms near the top.
+- `common-task-recipes.md` covers the required recipes with examples, traps, API notes, and follow-up lookup.
+- `api-main.md` contains common exact signatures before the exhaustive fallback.
+- Runtime references do not require the `raw/` cache.
 
 ## Manual Review Items
 
-- This pass satisfies the checked audit and structural validation. It does not prove every API example compiles in Workbench; task-specific implementation still requires API lookup and local validation.
-- `api-main.md` contains common signatures, but uncommon systems still require `api-extended.md`.
-- The official sample commit is still not available in local metadata.
+- This rebuild restores and validates the runtime skill surface. It does not prove generated Enfusion Script compiles in Workbench; task-specific edits still require project/API verification.
+- Exact raw provenance is summarized by the material source files and source groups above; the raw cache remains a generation input, not a runtime dependency.
