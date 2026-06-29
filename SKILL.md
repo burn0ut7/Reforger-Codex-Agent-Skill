@@ -5,7 +5,7 @@ description: Build, review, and modify Arma Reforger mods and Enfusion Script co
 
 # Arma Reforger Modding Skill
 
-Use this skill for Arma Reforger and Enfusion Script work. Start by routing the task to the smallest relevant reference, then verify exact APIs in `references/api-main.md` or `references/api-extended.md` before giving code that depends on signatures.
+Use this skill for Arma Reforger and Enfusion Script work. Start by routing the task to the smallest relevant reference, read that reference before implementing or answering, then verify exact APIs in `references/api-main.md` or `references/api-extended.md` before giving code that depends on signatures.
 
 ## Routing
 
@@ -32,8 +32,16 @@ Use this skill for Arma Reforger and Enfusion Script work. Start by routing the 
 - For assets, inspect the closest official sample pattern before inventing structure.
 - For Workbench plugins, use editor/plugin APIs; do not mix them with runtime gameplay assumptions.
 - For API-sensitive answers, cite the reference file used and keep exact signatures aligned with the generated API index.
+- For nontrivial tasks, read the topical reference and `references/common-task-recipes.md`; for unfamiliar assets or layouts, also read `references/examples-patterns.md`.
+- If a reference does not contain enough detail to answer safely, say what is missing and verify against `references/api-extended.md` or the project files before inventing behavior.
+
+## Answer Protocol
+
+- Classify the task as script-first, data-first, editor-first, server-first, asset-first, or mixed.
+- Name the reference files used when the answer depends on Reforger-specific behavior.
+- Include required Workbench, prefab, config, server, or packaging steps alongside code.
+- State residual verification: compile, Workbench save/reopen, Resource Manager check, host/client test, dedicated-server launch, or Workshop/package check as relevant.
 
 ## Review Bias
 
 When reviewing Reforger code or content, look first for lifecycle misuse, missing `super` calls in overrides, unregistered or uncleared event masks, client-side authority changes, unresolved resources, prefab/config/catalog omissions, and scripts solving problems that should be data-driven.
-
