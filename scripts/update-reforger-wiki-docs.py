@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.request
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +19,9 @@ from urllib.parse import unquote, urldefrag, urljoin, urlparse
 
 START_URL = "https://community.bistudio.com/wiki/Category:Arma_Reforger/Modding"
 REQUIREMENTS = ["selenium>=4.45.0", "beautifulsoup4>=4.12.0", "markdownify>=0.12.0"]
+EXCLUDED_PATHS = {
+    "/wiki/Arma_Reforger:Known_Issues",
+}
 
 
 def ensure_requirements() -> None:
@@ -45,15 +49,46 @@ def find_chrome() -> Path:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Crawl Arma Reforger BIKI docs through Chrome.")
+    parser.add_argument("--start-url", default=START_URL, help="Wiki URL to start crawling from.")
     parser.add_argument("--max-pages", type=int, default=0, help="Safety cap. 0 means no cap.")
     parser.add_argument("--manual-first", action="store_true", help="Pause after first page for manual verification.")
+    parser.add_argument("--no-manual-security", action="store_true", help="Do not pause for manual security verification.")
     parser.add_argument("--keep-browser-open", action="store_true")
     parser.add_argument("--settle-seconds", type=float, default=0.25, help="Extra wait after wiki content appears.")
+    parser.add_argument("--page-timeout", type=float, default=30.0, help="Seconds before a page load is considered stuck.")
+    parser.add_argument("--ready-timeout", type=float, default=30.0, help="Seconds to wait for wiki content after navigation.")
+    parser.add_argument("--retry-delay", type=float, default=2.0, help="Seconds to wait before retrying a stuck page.")
+    parser.add_argument("--max-page-retries", type=int, default=0, help="Retries per page. 0 means keep trying until saved or skipped.")
+    parser.add_argument(
+        "--browser-mode",
+        choices=["attach", "webdriver"],
+        default="attach",
+        help="attach launches normal Chrome with remote debugging, then Selenium attaches. webdriver starts Chrome through Selenium directly.",
+    )
+    parser.add_argument("--debug-port", type=int, default=9223, help="Chrome remote debugging port used by --browser-mode attach.")
     return parser.parse_args()
 
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def normalize_text(value: str) -> str:
+    replacements = {
+        "â€“": "-",
+        "â€”": "-",
+        "â€˜": "'",
+        "â€™": "'",
+        "â€œ": '"',
+        "â€�": '"',
+        "â€¦": "...",
+        "â€Ž": "",
+        "Â ": " ",
+        "Â": "",
+    }
+    for bad, good in replacements.items():
+        value = value.replace(bad, good)
+    return value
 
 
 def safe_name(url: str) -> str:
@@ -75,6 +110,8 @@ def normalize_url(base_url: str, href: str | None) -> str | None:
         return None
 
     path = unquote(parsed.path)
+    if path in EXCLUDED_PATHS:
+        return None
     if path.startswith("/wiki/Category:Arma_Reforger"):
         return url
     if path.startswith("/wiki/Arma_Reforger:"):
@@ -89,6 +126,10 @@ def page_kind(url: str) -> str:
     if "/wiki/Category:" in path:
         return "category"
     return "page"
+
+
+def is_excluded_url(url: str) -> bool:
+    return unquote(urlparse(url).path) in EXCLUDED_PATHS
 
 
 def clean_soup(soup) -> object:
@@ -123,6 +164,10 @@ def extract_document(html: str):
     headings = [heading.get_text(" ", strip=True) for heading in content.find_all(re.compile("^h[1-6]$"))]
     text = content.get_text("\n", strip=True)
     markdown = markdownify(str(content), heading_style="ATX").strip()
+    title = normalize_text(title)
+    headings = [normalize_text(heading) for heading in headings]
+    text = normalize_text(text)
+    markdown = normalize_text(markdown)
     return title, headings, text, markdown, soup
 
 
@@ -131,8 +176,34 @@ def is_empty_wiki_page(text: str) -> bool:
         "There is currently no text in this page.",
         "you do not have permission to create this page.",
         "This category currently contains no pages or media.",
+        "TODO): placeholder",
+        "TODO: placeholder",
     ]
     return any(marker in text for marker in empty_page_markers)
+
+
+def is_security_page(driver) -> bool:
+    title = ""
+    body = ""
+    try:
+        title = driver.title or ""
+    except Exception:
+        pass
+    try:
+        body = driver.execute_script("return document.body ? document.body.innerText : ''") or ""
+    except Exception:
+        pass
+
+    combined = f"{title}\n{body}".lower()
+    markers = [
+        "just a moment",
+        "performing security verification",
+        "security service",
+        "verify you are not a bot",
+        "checking your browser",
+        "cloudflare",
+    ]
+    return any(marker in combined for marker in markers)
 
 
 def make_driver(profile_dir: Path):
@@ -148,45 +219,85 @@ def make_driver(profile_dir: Path):
     options.add_argument("--blink-settings=imagesEnabled=false")
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option("useAutomationExtension", False)
-    options.page_load_strategy = "normal"
+    options.page_load_strategy = "eager"
     return webdriver.Chrome(options=options)
 
 
-def wait_ready(driver, timeout: float = 30.0, settle_seconds: float = 1.0) -> None:
+def wait_for_debugger(port: int, timeout: float = 20.0) -> None:
+    deadline = time.time() + timeout
+    url = f"http://127.0.0.1:{port}/json/version"
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=1):
+                return
+        except Exception:
+            time.sleep(0.2)
+    raise RuntimeError(f"Chrome remote debugger did not open on port {port}.")
+
+
+def make_attached_driver(profile_dir: Path, port: int, start_url: str):
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options
+
+    chrome = find_chrome()
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    args = [
+        str(chrome),
+        f"--remote-debugging-port={port}",
+        f"--user-data-dir={profile_dir}",
+        "--new-window",
+        start_url,
+    ]
+    subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    wait_for_debugger(port)
+
+    options = Options()
+    options.debugger_address = f"127.0.0.1:{port}"
+    options.page_load_strategy = "eager"
+    return webdriver.Chrome(options=options)
+
+
+def wait_ready(driver, timeout: float = 30.0, settle_seconds: float = 1.0) -> bool:
     from selenium.webdriver.common.by import By
-    from selenium.webdriver.support import expected_conditions as EC
-    from selenium.webdriver.support.ui import WebDriverWait
 
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
             state = driver.execute_script("return document.readyState")
-            title = driver.title
-            if state == "complete" and "Just a moment" not in title:
-                WebDriverWait(driver, 10).until(
-                    EC.presence_of_element_located((By.CSS_SELECTOR, "#mw-content-text, main, body"))
-                )
+            content = driver.find_elements(By.CSS_SELECTOR, "#mw-content-text, main, body")
+            if state in {"interactive", "complete"} and content and not is_security_page(driver):
                 time.sleep(settle_seconds)
-                return
+                return True
         except Exception:
             pass
         time.sleep(0.1)
+    return False
 
 
-def wait_past_security(driver, manual: bool, settle_seconds: float) -> None:
-    wait_ready(driver, settle_seconds=settle_seconds)
-    if "Just a moment" not in driver.title:
-        return
+def wait_past_security(driver, manual: bool, settle_seconds: float, ready_timeout: float) -> bool:
+    wait_ready(driver, timeout=ready_timeout, settle_seconds=settle_seconds)
+    if not is_security_page(driver):
+        return True
 
     print("[wiki-docs] browser security verification is showing.")
     if manual:
-        input("Complete it in Chrome, wait for the real page, then press Enter...")
-        wait_ready(driver, settle_seconds=settle_seconds)
-        return
+        try:
+            input("Complete it in Chrome, wait for the real page, then press Enter here...")
+        except EOFError:
+            print("[wiki-docs] stdin is unavailable; waiting for verification to clear automatically.")
+        return wait_ready(driver, timeout=ready_timeout, settle_seconds=settle_seconds)
 
     deadline = time.time() + 60
-    while "Just a moment" in driver.title and time.time() < deadline:
+    while is_security_page(driver) and time.time() < deadline:
         time.sleep(1)
+    return not is_security_page(driver)
+
+
+def stop_loading(driver) -> None:
+    try:
+        driver.execute_script("window.stop();")
+    except Exception:
+        pass
 
 
 def add_links_from_page(driver, queue: deque[str], queued: set[str], visited: set[str]) -> int:
@@ -237,20 +348,27 @@ def main() -> int:
 
     root = Path(__file__).resolve().parents[1]
     out_root = root / "raw" / "wiki-docs"
-    html_root = out_root / "html"
-    markdown_root = out_root / "markdown"
-    json_root = out_root / "pages"
-    profile_dir = root / "raw" / "tools" / "selenium-wiki-profile"
-    if out_root.exists():
-        shutil.rmtree(out_root)
+    stage_root = root / "raw" / "wiki-docs.tmp"
+    html_root = stage_root / "html"
+    markdown_root = stage_root / "markdown"
+    json_root = stage_root / "pages"
+    profile_dir = root / "raw" / "tools" / "chrome-wiki-profile"
+    if stage_root.exists():
+        shutil.rmtree(stage_root)
     for directory in [html_root, markdown_root, json_root, profile_dir]:
         directory.mkdir(parents=True, exist_ok=True)
 
-    driver = make_driver(profile_dir)
-    queue: deque[str] = deque([START_URL])
-    queued = {START_URL}
+    if args.browser_mode == "attach":
+        driver = make_attached_driver(profile_dir, args.debug_port, args.start_url)
+    else:
+        driver = make_driver(profile_dir)
+    driver.set_page_load_timeout(args.page_timeout)
+
+    queue: deque[str] = deque([args.start_url])
+    queued = {args.start_url}
     visited: set[str] = set()
     records: list[dict] = []
+    skipped_urls: list[dict] = []
 
     try:
         while queue:
@@ -260,58 +378,98 @@ def main() -> int:
             url = queue.popleft()
             if url in visited:
                 continue
-            visited.add(url)
-
-            print(f"[wiki-docs] opening {url}")
-            driver.get(url)
-
-            if not records and args.manual_first:
-                print("Complete browser verification if it appears, then press Enter.")
-                input("Press Enter after the real page has loaded...")
-                wait_past_security(driver, manual=True, settle_seconds=args.settle_seconds)
-            else:
-                wait_past_security(driver, manual=False, settle_seconds=args.settle_seconds)
-
-            if "Just a moment" in driver.title:
-                raise RuntimeError("Chrome is still on the security verification page. Re-run with --manual-first.")
-
-            html = driver.page_source
-            title, headings, text, markdown, _soup = extract_document(html)
-            if is_empty_wiki_page(text):
-                print(f"[wiki-docs] skipped empty page/category: {title or url}")
-                add_links_from_page(driver, queue, queued, visited)
+            if is_excluded_url(url):
+                print(f"[wiki-docs] skipped excluded URL: {url}")
+                skipped_urls.append({"url": url, "reason": "excluded"})
+                visited.add(url)
                 continue
 
-            name = safe_name(url)
+            attempt = 0
+            while True:
+                attempt += 1
+                try:
+                    suffix = f" (attempt {attempt})" if attempt > 1 else ""
+                    print(f"[wiki-docs] opening {url}{suffix}")
+                    try:
+                        driver.get(url)
+                    except Exception as exc:
+                        print(f"[wiki-docs] page load did not finish within {args.page_timeout}s: {exc}")
+                        stop_loading(driver)
 
-            html_path = html_root / f"{name}.html"
-            markdown_path = markdown_root / f"{name}.md"
-            json_path = json_root / f"{name}.json"
+                    if not records and args.manual_first:
+                        print("Complete browser verification if it appears, then press Enter.")
+                        try:
+                            input("Press Enter after the real page has loaded...")
+                        except EOFError:
+                            print("[wiki-docs] stdin is unavailable; continuing with automatic wait.")
+                        ready = wait_past_security(driver, manual=True, settle_seconds=args.settle_seconds, ready_timeout=args.ready_timeout)
+                    else:
+                        ready = wait_past_security(
+                            driver,
+                            manual=not args.no_manual_security,
+                            settle_seconds=args.settle_seconds,
+                            ready_timeout=args.ready_timeout,
+                        )
 
-            html_path.write_text(html, encoding="utf-8")
-            markdown_path.write_text(markdown + "\n", encoding="utf-8")
+                    if is_security_page(driver):
+                        raise RuntimeError("Chrome is still on the security verification page.")
+                    if not ready:
+                        wait_ready(driver, timeout=args.ready_timeout, settle_seconds=args.settle_seconds)
 
-            added = add_links_from_page(driver, queue, queued, visited)
-            record = {
-                "title": title or name,
-                "url": driver.current_url,
-                "kind": page_kind(driver.current_url),
-                "headings": headings,
-                "textLength": len(text),
-                "markdownPath": str(markdown_path.relative_to(out_root)),
-                "htmlPath": str(html_path.relative_to(out_root)),
-                "jsonPath": str(json_path.relative_to(out_root)),
-                "discoveredCategoryLinks": added,
-            }
-            page_data = {**record, "text": text, "markdown": markdown}
-            json_path.write_text(json.dumps(page_data, indent=2, ensure_ascii=False), encoding="utf-8")
-            records.append(record)
+                    html = driver.page_source
+                    title, headings, text, markdown, _soup = extract_document(html)
+                    if is_security_page(driver):
+                        raise RuntimeError("Chrome returned to the security verification page.")
+                    if is_empty_wiki_page(text):
+                        print(f"[wiki-docs] skipped empty page/category: {title or url}")
+                        add_links_from_page(driver, queue, queued, visited)
+                        visited.add(url)
+                        break
 
-            print(f"[wiki-docs] saved {title or name}; queued +{added}; total saved {len(records)}")
+                    has_wiki_container = "#mw-content-text" in html or 'id="mw-content-text"' in html
+                    if len(text.strip()) < 80 and not has_wiki_container:
+                        raise RuntimeError("loaded page did not contain useful wiki content")
+                    if not ready:
+                        print("[wiki-docs] saving from partially loaded page content")
+
+                    name = safe_name(url)
+
+                    html_path = html_root / f"{name}.html"
+                    markdown_path = markdown_root / f"{name}.md"
+                    json_path = json_root / f"{name}.json"
+
+                    html_path.write_text(html, encoding="utf-8")
+                    markdown_path.write_text(markdown + "\n", encoding="utf-8")
+
+                    added = add_links_from_page(driver, queue, queued, visited)
+                    record = {
+                        "title": title or name,
+                        "url": driver.current_url,
+                        "kind": page_kind(driver.current_url),
+                        "headings": headings,
+                        "textLength": len(text),
+                        "markdownPath": str(markdown_path.relative_to(stage_root)),
+                        "htmlPath": str(html_path.relative_to(stage_root)),
+                        "jsonPath": str(json_path.relative_to(stage_root)),
+                        "discoveredCategoryLinks": added,
+                    }
+                    page_data = {**record, "text": text, "markdown": markdown}
+                    json_path.write_text(json.dumps(page_data, indent=2, ensure_ascii=False), encoding="utf-8")
+                    records.append(record)
+                    visited.add(url)
+
+                    print(f"[wiki-docs] saved {title or name}; queued +{added}; total saved {len(records)}")
+                    break
+                except Exception as exc:
+                    stop_loading(driver)
+                    print(f"[wiki-docs] retrying {url}: {exc}")
+                    if args.max_page_retries and attempt >= args.max_page_retries:
+                        raise
+                    time.sleep(args.retry_delay)
 
         schema = {
             "generatedAt": now_iso(),
-            "startUrl": START_URL,
+            "startUrl": args.start_url,
             "boundary": {
                 "allowedPathPrefixes": [
                     "/wiki/Category:Arma_Reforger",
@@ -323,11 +481,17 @@ def main() -> int:
             "counts": {
                 "documents": len(records),
                 "remainingQueued": len(queue),
+                "skipped": len(skipped_urls),
             },
             "documents": records,
+            "skipped": skipped_urls,
         }
-        (out_root / "schema.json").write_text(json.dumps(schema, indent=2, ensure_ascii=False), encoding="utf-8")
-        write_router(out_root / "router.md", records)
+        (stage_root / "schema.json").write_text(json.dumps(schema, indent=2, ensure_ascii=False), encoding="utf-8")
+        write_router(stage_root / "router.md", records)
+
+        if out_root.exists():
+            shutil.rmtree(out_root)
+        stage_root.rename(out_root)
         print(f"[wiki-docs] wrote {out_root / 'schema.json'}")
         print(f"[wiki-docs] wrote {out_root / 'router.md'}")
     finally:
@@ -335,6 +499,8 @@ def main() -> int:
             print("[wiki-docs] leaving Chrome open")
         else:
             driver.quit()
+        if stage_root.exists():
+            shutil.rmtree(stage_root)
 
     return 0
 

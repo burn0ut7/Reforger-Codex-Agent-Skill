@@ -1,0 +1,7 @@
+interface:
+  display_name: "Arma Reforger"
+  short_description: "Reforger modding and Enfusion Script help"
+  default_prompt: "Use $reforger to review or modify this Arma Reforger mod code with API-aware guidance."
+
+policy:
+  allow_implicit_invocation: true

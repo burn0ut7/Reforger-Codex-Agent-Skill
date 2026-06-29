@@ -2,6 +2,40 @@
 
 This file is the design source for regenerating the Arma Reforger Codex skill, its references, and its review output. It is written for Codex. Use judgment, inspect the raw data, and keep the final skill compact.
 
+## Instruction Precedence For Generation
+
+When regenerating this skill, treat this `generation/design.md` as the controlling project specification after system/developer instructions and required skill-creation rules.
+
+- System/developer instructions and tool safety rules still have higher priority.
+- The `skill-creator` skill provides generic skill packaging rules only. It does not weaken, replace, or reinterpret this design's source, size, completeness, or audit requirements.
+- If `skill-creator` says to keep a skill concise, apply that to `SKILL.md`, not to topical files under `references/`.
+- If there is tension between generic skill concision and this design's reference-depth requirements, satisfy both by keeping `SKILL.md` compact and putting the detail in `references/`.
+- Do not use "context efficiency", "compactness", or "the skill validated" as a reason to accept thin required references.
+- Passing `quick_validate.py` only proves the folder is structurally valid. It is not evidence that this design was followed.
+
+## Non-Negotiable Build Contract
+
+This is a multi-pass corpus generation task, not a normal concise skill edit. Do not try to satisfy it with a compact first pass.
+
+- Keep `SKILL.md` compact.
+- Make topical references detailed enough to stand on their own for real Reforger work.
+- Do not write or rewrite final `SKILL.md` until required references pass the design completeness audit.
+- Do not mark a run complete if any required reference fails the audit, even when `quick_validate.py` passes.
+- If context, time, or tooling is not enough to finish, stop with `generation/review.md` status `INCOMPLETE` or `STRUCTURALLY VALID BUT DESIGN-INCOMPLETE`.
+- Re-read this contract, the "Generation Boundary", the "Reference Strategy", and the "Validation" sections at every phase boundary before continuing.
+
+Minimum required reference bar before `SKILL.md` may be finalized:
+
+- Every required reference exists.
+- Every non-exempt topical reference has at least 250 nonblank lines unless marked `INTENTIONALLY SHORT` with exact sparse-source proof.
+- `common-task-recipes.md`, `examples-patterns.md`, and `api-main.md` each have at least 200 nonblank lines unless marked `INTENTIONALLY SHORT` with exact sparse-source proof.
+- Every reference is standalone and useful without the `raw/` directory present.
+- Do not include `raw/...` paths, "Sources Used" raw-source sections, or instructions to open `raw/` files in generated references or `SKILL.md`.
+- `generation/review.md` must include exact raw source provenance for every generated reference. Keep raw source paths in review/audit output, not in runtime references.
+- Every applicable reference has direct examples or an explicit no-example rationale.
+- Every applicable reference has `Common Traps`, `Review Checklist`, or both.
+- Every applicable reference has API lookup notes, and `api-main.md` includes exact signatures for mandatory common APIs rather than only search advice. Raw source paths for those signatures belong in `generation/review.md`.
+
 ## Goal
 
 Create a Codex skill for Arma Reforger modding and Enfusion Script work. `SKILL.md` should be a router and guardrail, not a large reference. Detailed information belongs in topical files under `references/`.
@@ -27,6 +61,48 @@ Do not use existing `SKILL.md`, old generated references, old review output, int
 Generated references created during the current run may be cross-checked against each other for consistency, but they are outputs. They are not source material.
 
 Samples are examples, not the highest authority. If samples conflict with current wiki/docs or current extracted API signatures, prefer wiki/docs and raw game API data.
+
+## Generation Boundary
+
+The skill generation pass is AI/Codex work guided by this design. Do not create or use an ad hoc deterministic script to generate topical references, `api-main.md`, `SKILL.md`, or `generation/review.md`.
+
+Do not do a skeleton, stub, outline-only, or "compact first pass" generation and present it as complete. A generation run is incomplete until every required reference has been filled with source-grounded detail, examples, traps, and API notes according to this design, and until `generation/review.md` records exact raw source provenance for each reference. If the available time/context is not enough to finish that standard, stop with `generation/review.md` clearly marking the run incomplete and listing exactly which files still need expansion.
+
+Allowed deterministic generation:
+
+- Refresh raw data with the raw-data scripts.
+- Generate only `references/api-extended.md` with `scripts/build-reforger-extended-api-reference.py`.
+
+Allowed deterministic assistance:
+
+- Use only committed, reviewed helper scripts that are already part of this skill repository.
+- Helper scripts may inventory sources, classify source candidates, extract API signature candidates, check markdown structure, count lines, detect broad/glob source citations, verify required recipes, verify `SKILL.md` links, and produce audit output.
+- Helper scripts may not be generated during an ordinary rebuild run. If a helper script must change, make that an explicit repository edit, review it, and commit it like any other skill source file.
+- Helper scripts may not write final topical reference prose, `api-main.md`, `SKILL.md`, or `generation/review.md` unless this design is explicitly changed later. They can produce candidate data and fail/pass reports; Codex must curate the final reference text.
+- The same checked-in script version must produce stable audit behavior for every user who runs the repo with the same inputs.
+
+Everything else must be curated by Codex during the generation pass:
+
+- `references/overview.md`
+- `references/scripting-core.md`
+- `references/scripting-language.md`
+- `references/entity-component-lifecycle.md`
+- `references/networking-multiplayer-replication.md`
+- `references/resources-prefabs-configs.md`
+- `references/workbench-tools-debugging.md`
+- `references/scenario-framework-game-master.md`
+- `references/terrain-world-editor.md`
+- `references/assets-weapons-vehicles-animation-audio.md`
+- `references/server-runtime-packaging.md`
+- `references/examples-patterns.md`
+- `references/common-task-recipes.md`
+- `references/api-main.md`
+- `SKILL.md`
+- `generation/review.md`
+
+Reason: these files require judgment, source prioritization, useful compression, example selection, uncertainty labeling, and routing decisions. A rigid script tends to flatten the docs, miss nuance, and create reference slop. Stable repository helper scripts are allowed only to make the process observable and enforceable.
+
+Do not add scripts named or shaped like `generate-reforger-skill.py`, `build-references.py`, or similar deterministic reference/skill generators unless the design is explicitly changed later. Prefer names such as `audit-references.py`, `inventory-sources.py`, or `extract-api-candidates.py` for checked-in helper scripts that do not write final prose.
 
 ## Refresh Rules
 
@@ -75,6 +151,7 @@ reforger/
     update-reforger-wiki-docs.py
     update-reforger-samples.ps1
     build-reforger-extended-api-reference.py
+    audit-references.py
   references/
     overview.md
     scripting-core.md
@@ -91,6 +168,7 @@ reforger/
     common-task-recipes.md
     api-main.md
     api-extended.md
+  generation-only raw inputs, not required for installed skill use:
   raw/
     game-data/
     wiki-docs/
@@ -102,35 +180,79 @@ reforger/
 
 Only create folders when needed.
 
+The installed/distributed skill must remain usable without `raw/`. `raw/` is a generation input cache, not a runtime dependency for Codex skill use.
+
 ## Reference Strategy
 
-References should be useful to load into context. Keep them dense, factual, and navigable. Avoid giant dumps when a summary plus source pointers and search terms is better.
+References should be useful to load into context. Keep them dense, factual, navigable, and standalone. Avoid giant dumps when a summary plus stable in-skill lookup guidance is better.
 
 References are written for Codex first, but they must still render cleanly for a human reviewer on GitHub. Do not leave broken markdown tables, raw HTML fragments, navigation junk, crawl artifacts, one-line dumps, or malformed headings in generated references.
 
+Runtime reference rule:
+
+- Generated `references/*.md` and `SKILL.md` must not require, mention, link to, or instruct the agent to open `raw/` files.
+- Do not include `Sources Used` sections with raw paths in references.
+- Do not include raw source paths such as `raw/wiki-docs/...`, `raw/samples/...`, or `raw/game-data/...` in references or `SKILL.md`.
+- References may name source families in prose, such as "official wiki docs", "official samples", or "extracted API data", but exact raw file paths belong only in `generation/review.md`.
+- References must include enough summarized guidance, examples, signatures, traps, and routing to be useful without regeneration.
+
 Size guidance:
 
-- Keep normal topical references roughly 300-900 lines when possible.
+- Keep normal topical references roughly 300-900 lines when possible. This is a real target, not decorative guidance.
+- A required topical reference under 180 nonblank lines fails the completeness audit unless `generation/review.md` gives a topic-specific reason backed by sparse source material and names the exact sparse source set.
+- `overview.md` may be shorter, but it still fails if it cannot route code-vs-data decisions and raw-source usage without relying on another overview.
+- `common-task-recipes.md`, `examples-patterns.md`, and `api-main.md` fail the completeness audit when under 200 nonblank lines unless `generation/review.md` gives a topic-specific sparse-source justification. Generic "compactness" is not a valid justification for these central references.
 - Split a reference if it grows too large to load usefully for a single task.
-- Prefer section tables, concise examples, source paths, and search terms over long copied passages.
+- Prefer section tables, concise examples, stable in-skill references, and search terms over long copied passages.
 - `api-extended.md` is exempt from size limits because it is search-only fallback data.
 - For any large reference, include a short table of contents and useful search terms near the top.
 
-Each topical reference should include several examples and sections where they are useful. Use as many as needed to make the reference practical, while keeping the file focused and context-efficient:
+Completion gate:
+
+- Do not proceed from reference writing to `SKILL.md` until the reference completeness audit passes.
+- Do not report the generation as complete when a required reference is below its threshold without a specific sparse-source justification.
+- Do not report the generation as complete until `generation/review.md` includes a coverage map showing which source documents, sample groups, and API domains were preserved, summarized, deferred to `api-extended.md`, or intentionally omitted.
+- Do not treat line counts, successful structural validation, or a passing helper script as sufficient proof of detail retention.
+- If time, context, or tooling prevents expansion, write `generation/review.md` with status `INCOMPLETE`, list every failing reference, and stop. Do not create a final-sounding summary that says the skill was rebuilt.
+- "Substantially more useful than before" is not a pass condition.
+
+Each topical reference must include several examples and sections where they are useful. Use as many as needed to make the reference practical, while keeping the file focused and context-efficient:
 
 - When to read it.
-- Raw source files used.
+- Generation provenance is recorded in `generation/review.md`, not in this reference.
 - Key official wiki/doc guidance.
 - Synthesized rules and task-focused takeaways before raw excerpts.
 - Concrete examples from docs when useful.
 - Common mistakes and traps.
 - Relevant APIs, with enough signatures to code safely.
 - Search terms for follow-up lookup.
-- Direct code, config, project-layout, or command examples where the raw sources support them. Include multiple examples when a topic has multiple common workflows or failure-prone patterns.
+- Direct code, config, project-layout, or command examples where the generation sources support them. Include multiple examples when a topic has multiple common workflows or failure-prone patterns.
 
-Use wiki/docs information as the strongest source. Use game API data to verify names, signatures, inheritance, methods, properties, and source paths.
+For each required topical reference, include at least:
 
-Use official samples to add concrete examples and real file-layout patterns. Prefer small excerpts and summaries over large code dumps. For script examples, include enough context to show the pattern, then cite the sample path. For asset-heavy samples, summarize the structure and identify the relevant `.conf`, `.et`, `.ent`, or README files instead of copying bulk asset data.
+- A short table of contents or search-term block near the top.
+- No raw-source `Sources Used` section. Exact raw wiki/sample/API files used must be listed under this reference's provenance entry in `generation/review.md`.
+- At least three task-focused guidance sections unless the topic is genuinely narrow.
+- At least one "Common traps" or "Review checklist" section.
+- At least one direct example block or explicit "No direct example included because..." note.
+- API lookup notes that point to `api-main.md` and `api-extended.md` for any uncertain method/class.
+- No local raw paths, raw file references, or instructions to open `raw/`.
+
+Line count alone is not sufficient. A 300-line file made of copied source noise, repeated bullets, or generic advice is not acceptable. Conversely, a shorter file can be acceptable only when it is dense, source-grounded, and `generation/review.md` explains why more detail would be padding.
+
+Detail retention rules:
+
+- Preserve every operational rule, warning, prerequisite, limitation, required file shape, required Workbench step, required config field, and API signature that would change how Codex writes or reviews a Reforger mod.
+- Compress tutorial prose, screenshots, navigation text, repeated introductions, and long asset/config dumps, but keep the actionable sequence and the exact decision points.
+- For each source document assigned to a reference, record in `generation/review.md` whether its actionable content was preserved as guidance, preserved as an example, summarized as background, superseded by API data, or intentionally omitted as non-actionable.
+- If a source document is long or dense, the generated reference must include a coverage subsection for its major concepts rather than only naming the document in review.
+- If multiple source documents repeat the same rule, merge the rule once and note the repeated source family in review.
+- If the generated reference cannot preserve a detail without becoming too large, keep the task-critical detail in the topical reference and defer only exhaustive lookup material to `api-main.md` or `api-extended.md`.
+- A rebuild that reduces a broad wiki/API corpus to mostly high-level summaries is incomplete even if every reference has examples, traps, and API notes.
+
+Use wiki/docs information as the strongest generation source. Use game API data to verify names, signatures, inheritance, methods, and properties. Put exact source file paths in `generation/review.md`, not runtime references.
+
+Use official samples to add concrete examples and real file-layout patterns. Prefer small excerpts and summaries over large code dumps. For script examples, include enough context to show the pattern without requiring the raw sample file. For asset-heavy samples, summarize the structure and relevant `.conf`, `.et`, `.ent`, or README concepts instead of copying bulk asset data. Record exact sample paths in `generation/review.md`.
 
 Markdown quality rules:
 
@@ -140,14 +262,14 @@ Markdown quality rules:
 - Convert scraped tables that do not render cleanly into bullet lists.
 - Remove meaningless copied UI text such as `Copy`, edit buttons, image-only links, icons, and navigation labels.
 - Normalize encoding artifacts and punctuation in generated references.
-- Cite source paths and URLs visibly near the relevant content.
+- Do not cite raw local source paths in runtime references. Cite stable public URLs only when useful and available; otherwise record exact local provenance in `generation/review.md`.
 - Summarize messy excerpts instead of copying raw scraped blocks.
 
 Code example rules:
 
 - Examples are additive. They must not replace source-grounded guidance, gotchas, or API notes.
-- Scripting-heavy references should include several direct code examples when raw sources support them, not just one token example.
-- Config, prefab, resource, world, server, and packaging references should include several direct config, path-layout, command, or project-layout examples when raw sources support them.
+- Scripting-heavy references should include several direct code examples when generation sources support them, not just one token example.
+- Config, prefab, resource, world, server, and packaging references should include several direct config, path-layout, command, or project-layout examples when generation sources support them.
 - Prefer short examples from official docs and official samples. Do not copy large files.
 - Label examples as `official-doc-example`, `official-sample-excerpt`, `generated-pattern-from-docs`, `example-observed`, or `pseudocode`.
 - For `generated-pattern-from-docs`, `example-observed`, and `pseudocode`, state which APIs must be verified in `api-main.md` or `api-extended.md`.
@@ -174,7 +296,9 @@ Each recipe should include:
 - Minimal code shape or pseudocode.
 - APIs that must be verified.
 - Common traps.
-- Source wiki/sample/API paths.
+- Source-family label and matching provenance entry in `generation/review.md`.
+
+Each required recipe must be a real task recipe, not a one-line pointer. Include a short decision note when the task may be better solved with prefab/config/resource data instead of script.
 
 Required recipes:
 
@@ -209,7 +333,7 @@ Use official samples such as `SampleMod_ModdedScript` and script files from othe
 
 Cover file/class organization, event/callback patterns, lifecycle patterns, modded class patterns, performance, debugging, profiling, and gotchas.
 
-Include direct examples for a minimal script file/class, a modded class override from official samples, `Print`/`PrintFormat`, and `ScriptInvoker` where supported by raw sources.
+Include direct examples for a minimal script file/class, a modded class override from official samples, `Print`/`PrintFormat`, and `ScriptInvoker` where supported by generation sources.
 
 ### `scripting-language.md`
 
@@ -217,7 +341,7 @@ Enfusion Script language mechanics.
 
 Cover keywords, operators, values, automatic reference counting, classes, inheritance, constructors/destructors, annotations/attributes, config objects, JSON, preprocessor directives, and macros.
 
-Include direct examples for typed variables, arrays, loops, conditionals, class/method style, `ref` ownership/ARC-safe patterns, and JSON/config object usage where supported by raw sources.
+Include direct examples for typed variables, arrays, loops, conditionals, class/method style, `ref` ownership/ARC-safe patterns, and JSON/config object usage where supported by generation sources.
 
 ### `entity-component-lifecycle.md`
 
@@ -269,7 +393,7 @@ Use Scenario Framework, setup/update tutorials, Game Master tutorials, Task Syst
 
 Use `SampleMod_NewFaction`, sample mission/config files, entity catalog configs, and relevant `.ent` files for real faction/scenario examples.
 
-Include direct examples for faction config paths, entity catalog config structure, and a scenario/Game Master setup checklist with source paths.
+Include direct examples for faction config path shapes, entity catalog config structure, and a scenario/Game Master setup checklist. Put exact raw source paths in `generation/review.md`.
 
 ### `terrain-world-editor.md`
 
@@ -299,20 +423,20 @@ Use Startup Parameters, Server Config, Server Hosting, Server Management, Worksh
 
 Use samples for packaging/addon layout examples only. Do not use samples as server configuration authority unless the sample explicitly contains server/runtime configuration.
 
-Include direct examples for startup parameters, server config fields, `.gproj` layout, and addon/project packaging layout when raw sources provide them.
+Include direct examples for startup parameters, server config fields, `.gproj` layout, and addon/project packaging layout when generation sources provide them.
 
 ### `examples-patterns.md`
 
 Official sample mod patterns and project layouts.
 
-Use `raw/samples/README.md`, `raw/samples/SampleMod_*/README.md`, sample `.c`, `.conf`, `.et`, `.ent`, and `.gproj` files.
+Use official sample README files, sample `.c`, `.conf`, `.et`, `.ent`, and `.gproj` files during generation. Do not include local raw sample paths in the finished reference.
 
 Purpose: give Codex a compact map of official sample projects and reusable example patterns without bloating every topical reference.
 
 Include:
 
 - Sample mod inventory and what each sample demonstrates.
-- Script examples worth reusing, with short fenced `c` excerpts and source paths.
+- Script examples worth reusing, with short fenced `c` excerpts and source-family labels. Exact raw paths go in `generation/review.md`.
 - Common addon/project layout patterns.
 - Config, prefab, entity catalog, arsenal, world, Workbench plugin, weapon, vehicle, character, faction, replacement, cinematic, and animation sample patterns.
 - Cross-links to topical references that should use each pattern.
@@ -327,7 +451,7 @@ Use this as a fast path after `SKILL.md` routing when the user asks for a common
 
 This reference should be practical and explicit. It should avoid long raw excerpts and instead point back to topical references for deep background.
 
-Every recipe should include a direct example block when raw sources support it. If a complete verified code example is not available, include a smaller verified snippet plus an explicit uncertainty note.
+Every recipe should include a direct example block when generation sources support it. If a complete verified code example is not available, include a smaller verified snippet plus an explicit uncertainty note.
 
 ### `api-main.md`
 
@@ -400,6 +524,14 @@ Suggested routing:
 
 ## Generation Workflow
 
+Phase 0 - Re-read gates:
+
+1. Re-read "Non-Negotiable Build Contract", "Generation Boundary", "Reference Strategy", and "Validation".
+2. Confirm the work is a full rebuild, partial expansion, or audit-only pass.
+3. If the user asked for a full rebuild, do not stop after writing a compact useful set.
+
+Phase 1 - Raw source readiness:
+
 1. Apply the refresh rules. Pull game data, wiki docs, or official samples only when asked or when the required raw folder/file is missing.
 2. Confirm required raw inputs exist: wiki schema/markdown/pages, game API schema/manifest, and official samples.
 3. Run `scripts/build-reforger-extended-api-reference.py` to regenerate `references/api-extended.md` from raw game API data.
@@ -407,22 +539,75 @@ Suggested routing:
    - Wiki docs: titles, URLs, headings, markdown paths, page JSON, text length, categories.
    - Samples: README files, `.c`, `.conf`, `.et`, `.ent`, and project layout paths.
    - Game API schema: classes, enums, functions, methods, properties, docs, signatures, source files.
-5. Create a source inventory for the review: available raw inputs, wiki counts, sample counts, API counts, skipped/empty pages, duplicate candidates, and source warnings.
-6. Clean the wiki source set. Remove or flag empty pages, duplicate pages, broken category shells, and pages with no useful text.
-7. Classify wiki pages, sample files, and APIs into the reference topics in this design.
-8. Build topical references from official wiki/docs first. Preserve the docs as the main source of truth.
-9. Add direct code, config, command, and project-layout examples where they improve the reference. Examples are additive to the source guidance, must be source-labeled, and must cite official wiki/doc, sample, or API paths.
-10. Build `references/examples-patterns.md` from official samples as the central sample layout/example map.
-11. Build `references/common-task-recipes.md` from official docs, samples, and verified APIs. Include direct example blocks for supported recipes.
-12. Verify every API name/signature used in topical references, examples, and recipes against `raw/game-data/api-schema.json`.
-13. Curate `references/api-main.md` while building references. Include only the most useful APIs for common Reforger coding and cite exact signatures from raw game data.
-14. Record expected-common API gaps in `api-main.md` and `generation/review.md`.
-15. Check markdown quality for every reference: valid headings, fenced code blocks, readable lists/tables, source citations, no raw crawl noise, and clean GitHub rendering.
-16. Check reference size and usefulness. Split or trim anything that creates context bloat without adding practical lookup value.
-17. Create `SKILL.md` as a compact router and guardrail that points to the generated references.
-18. Create or validate `agents/openai.yaml` so the skill metadata matches `SKILL.md`.
-19. Validate the skill folder and generated links.
-20. Write `generation/review.md`, overwriting any prior review.
+5. Use only checked-in helper scripts for inventory or audit. Do not create helper scripts during the rebuild unless the user's task is explicitly to change the skill tooling.
+6. Create a source inventory for the review: available raw inputs, wiki counts, sample counts, API counts, skipped/empty pages, duplicate candidates, and source warnings.
+7. Clean the wiki source set. Remove or flag empty pages, duplicate pages, broken category shells, and pages with no useful text.
+8. Classify wiki pages, sample files, and APIs into the reference topics in this design.
+
+Phase 2 - Core references:
+
+1. Build `references/api-main.md` from verified API schema entries and cited docs/samples. Include exact signatures for the mandatory API groups. Put exact schema/source paths in `generation/review.md`.
+2. Build `references/scripting-core.md`, `references/entity-component-lifecycle.md`, `references/networking-multiplayer-replication.md`, and `references/resources-prefabs-configs.md` before lower-priority topics.
+3. Build topical references from official wiki/docs first. Preserve the docs as the main source of truth.
+4. Curate topical references directly as Codex-authored Markdown. Do not write or run a deterministic reference-generation script.
+5. Add direct code, config, command, and project-layout examples where they improve the reference. Examples are additive to the source guidance and must be source-labeled by category, but must not cite local `raw/` paths in the reference.
+6. Verify every API name/signature used in topical references, examples, and recipes against `raw/game-data/api-schema.json`.
+
+Phase 3 - Remaining references and recipes:
+
+1. Build the remaining topical references in priority order from this design.
+2. Build `references/examples-patterns.md` from official samples as the central sample layout/example map. Inventory every official sample mod by name and purpose, without raw local file paths.
+3. Build `references/common-task-recipes.md` from official docs, samples, and verified APIs. Include direct example blocks for supported recipes.
+4. Record expected-common API gaps in `api-main.md` and later in `generation/review.md`.
+5. Check markdown quality for every reference: valid headings, fenced code blocks, readable lists/tables, source citations, no raw crawl noise, and clean GitHub rendering.
+
+Phase 4 - Audit gate before `SKILL.md`:
+
+1. Run the checked-in audit script:
+
+```powershell
+py -3 scripts\audit-references.py
+```
+
+2. The audit must check:
+   - Every required reference exists.
+   - Nonblank line targets are met or have topic-specific `INTENTIONALLY SHORT` justification.
+   - No generated runtime reference or `SKILL.md` contains `raw/` paths or a raw-source `Sources Used` section.
+   - `generation/review.md` contains exact raw source provenance for every generated reference.
+   - Every applicable reference has traps/checklists and examples or explicit no-example rationale.
+   - Every reference has a review coverage map for assigned source documents, sample groups, and API domains.
+   - `common-task-recipes.md` includes every required recipe.
+   - `examples-patterns.md` inventories all official sample mods.
+   - `api-main.md` includes mandatory API coverage with exact signatures or explicit missing-API gaps. Exact schema/source paths for those entries belong in `generation/review.md`.
+   - Existing `SKILL.md`, if present, references only existing files.
+3. If any required reference fails the completeness audit, expand it before continuing. Do not continue to `SKILL.md` as if the generation passed.
+4. Check reference size and usefulness. Split or trim anything that creates context bloat without adding practical lookup value, but do not trim below the required depth bar.
+
+Phase 5 - Final skill and review:
+
+1. Create `SKILL.md` as a compact router and guardrail that points to the generated references. This is AI/Codex-authored.
+2. Create or validate `agents/openai.yaml` so the skill metadata matches `SKILL.md`.
+3. Validate the skill folder and generated links.
+4. Run `scripts/audit-references.py` again after `SKILL.md` is written.
+5. Write `generation/review.md`, overwriting any prior review. This is AI/Codex-authored audit output, not script-generated, but it may quote or summarize the checked-in audit script's results.
+
+Required audit table columns:
+
+- `Reference`
+- `Nonblank lines`
+- `Line target met`
+- `Runtime raw references absent`
+- `Review provenance listed`
+- `Source coverage mapped`
+- `Actionable details retained`
+- `Examples present`
+- `Traps/checklist present`
+- `API notes present`
+- `Required coverage met`
+- `Status`
+- `If failed, required expansion`
+
+Allowed `Status` values are only `PASS`, `FAIL`, or `INTENTIONALLY SHORT`. Use `INTENTIONALLY SHORT` only when the review gives a topic-specific sparse-source explanation and lists the exact raw files checked in `generation/review.md`.
 
 ## Document Classification
 
@@ -476,10 +661,18 @@ Include:
 - API counts.
 - References written.
 - Approximate size and purpose of each reference.
+- Reference completeness table with line counts, runtime raw-reference absence, review provenance status, example status, trap/checklist status, and pass/fail.
+- Source coverage map for each generated reference, including source documents considered, major concepts preserved, concepts summarized, concepts deferred to `api-main.md` or `api-extended.md`, and concepts intentionally omitted.
+- Actionable-detail retention notes for each generated reference: list any warnings, prerequisites, Workbench steps, config fields, API signatures, or sample patterns that were difficult to compress and how they were preserved.
+- Any reference below the expected size target, with either a topic-specific sparse-source justification or explicit `FAIL` status. Do not use broad wording such as "intentionally compressed" as a substitute for a justification.
+- A top-level generation status line: `COMPLETE`, `INCOMPLETE`, or `STRUCTURALLY VALID BUT DESIGN-INCOMPLETE`.
+- If `quick_validate.py` passes but the completeness audit fails, use `STRUCTURALLY VALID BUT DESIGN-INCOMPLETE`.
 - How `api-main.md` was curated.
 - Expected-common APIs that were missing or only found in comments/examples.
 - Task recipes written and any recipe uncertainty.
-- Direct examples added per reference and any references that intentionally lack examples due to missing raw support.
+- Direct examples added per reference and any references that intentionally lack examples due to missing source support.
+- Exact raw source provenance per reference: list the raw wiki/docs, sample, and API files used for each generated reference. This is where raw paths belong.
+- Confirmation that generated `SKILL.md` and `references/*.md` contain no `raw/` paths and no instructions to open raw files.
 - Markdown quality issues found and fixed, including broken tables, missing code fences, crawl artifacts, and unreadable copied excerpts.
 - Confirmation that `api-extended.md` was generated exhaustively.
 - Any source-data warnings.
@@ -492,28 +685,63 @@ Include:
 
 Before finishing generation:
 
+- Re-read "Non-Negotiable Build Contract", "Generation Boundary", "Generation Workflow", and this "Validation" section.
 - Confirm every reference in `SKILL.md` exists.
-- Confirm references use raw wiki/docs as the highest-priority source.
+- Confirm no required reference is merely a stub, outline, short placeholder, or high-level summary when source material exists.
+- Confirm each required reference satisfies the Reference Strategy completeness checklist. If not, expand it before finishing or mark the generation `INCOMPLETE`.
+- Confirm each required reference has a source coverage map in `generation/review.md` and that every assigned source document's actionable content is preserved, summarized with rationale, deferred to API lookup, or intentionally omitted with rationale.
+- Confirm references preserve actionable details from source docs, not just topic labels, representative examples, or broad summaries.
+- Confirm required topical references are normally 300-900 lines, with topic-specific sparse-source review justification for any shorter file.
+- Confirm `common-task-recipes.md`, `examples-patterns.md`, and `api-main.md` are substantial central references, not thin routing files. Under 200 nonblank lines is a failure unless specifically justified by sparse source material.
+- Confirm references were generated from raw wiki/docs as the highest-priority source, but do not contain raw paths.
 - Confirm official samples are used as examples only, not as rule authority over docs/API data.
-- Confirm API signatures come from raw game data.
+- Confirm API signatures come from raw game data and that exact raw API provenance is recorded in `generation/review.md`.
 - Confirm no generated output used old generated references or old `SKILL.md` as source.
+- Confirm no deterministic script generated topical references, `api-main.md`, `SKILL.md`, or `generation/review.md`.
 - Confirm `api-main.md` is compact and curated.
 - Confirm `api-main.md` includes the mandatory common API coverage or records explicit gaps.
 - Confirm `api-extended.md` is exhaustive and searchable.
 - Confirm `common-task-recipes.md` exists and includes all required recipes.
-- Confirm direct examples are present in scripting-heavy and task-recipe references where raw sources support them.
+- Confirm direct examples are present in scripting-heavy and task-recipe references where generation sources support them.
 - Confirm examples are additive and do not replace official guidance, gotchas, or API notes.
-- Confirm non-script references include useful config, path-layout, command, or project-layout examples where raw sources support them.
-- Confirm every code/config example has a source label and source path or URL.
+- Confirm non-script references include useful config, path-layout, command, or project-layout examples where generation sources support them.
+- Confirm every code/config example has a source label, but no local `raw/` path.
 - Confirm uncertain example APIs are marked `example-observed`, `generated-pattern-from-docs`, or `pseudocode` with verification notes.
 - Confirm references render as clean Markdown for GitHub review: no broken tables, malformed headings, raw HTML, raw navigation text, or unfenced code blocks.
 - Confirm empty wiki pages are absent or flagged.
 - Confirm scripting references are the richest references.
 - Confirm API lookup routing is topical reference, then `api-main.md`, then `api-extended.md`.
 - Confirm large references include search terms or a short table of contents.
-- Confirm `SKILL.md` includes grep/search guidance for `api-extended.md`, `api-main.md`, and sample paths.
+- Confirm `SKILL.md` includes grep/search guidance for `api-extended.md` and `api-main.md`, but does not mention `raw/` paths.
 - Confirm `agents/openai.yaml` exists or is intentionally skipped, and matches the generated `SKILL.md`.
-- Run the available skill validation tool if present, then fix any reported metadata or structure issues.
+- Run `py -3 scripts\audit-references.py` and fix every reported failure before claiming completion.
+- Run the available skill validation tool if present, then fix any reported metadata or structure issues. Record this separately from the design completeness audit.
+
+Hard stop rules:
+
+- If any required reference has `Status = FAIL`, the generation is not complete.
+- If `generation/review.md` does not include the required audit table, the generation is not complete.
+- If `generation/review.md` does not include source coverage maps and actionable-detail retention notes for each generated reference, the generation is not complete.
+- If any source document assigned to a generated reference is only named but not coverage-reviewed, the generation is not complete.
+- If `SKILL.md` or any runtime reference contains local `raw/` paths or tells the agent to open `raw/`, the generation is not complete.
+- If `generation/review.md` does not list exact raw source provenance per reference, the generation is not complete.
+- If `common-task-recipes.md` is missing any required recipe, the generation is not complete.
+- If `examples-patterns.md` does not inventory every official sample mod, the generation is not complete.
+- If `scripts/audit-references.py` fails, the generation is not complete.
+
+Suggested local audit commands:
+
+```powershell
+py -3 scripts\audit-references.py
+
+Get-ChildItem references -File |
+  Where-Object { $_.Name -ne 'api-extended.md' } |
+  Select-Object Name,@{Name='NonblankLines';Expression={(Get-Content $_.FullName | Where-Object { $_.Trim() } | Measure-Object -Line).Lines}},Length |
+  Sort-Object Name
+
+Select-String -Path SKILL.md,references\*.md -Pattern 'raw/|raw\\|Sources Used|Source files|Raw source'
+Select-String -Path references\*.md -Pattern 'Common traps|Review checklist|official-doc-example|official-sample-excerpt|pseudocode|generated-pattern-from-docs'
+```
 
 ## Priority Order
 
