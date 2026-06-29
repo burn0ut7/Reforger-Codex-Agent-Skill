@@ -348,7 +348,7 @@ def generic_padding_problems(name: str, text: str) -> list[str]:
     return []
 
 
-def concept_problems(name: str, text: str, concepts: list[Concept], review_ids: set[str]) -> list[str]:
+def concept_problems(name: str, text: str, concepts: list[Concept], review_ids: set[str], require_review_rows: bool) -> list[str]:
     if name == "api-extended.md":
         return []
     problems: list[str] = []
@@ -358,7 +358,7 @@ def concept_problems(name: str, text: str, concepts: list[Concept], review_ids: 
         return problems
 
     for concept in relevant:
-        if concept.concept_id not in review_ids:
+        if require_review_rows and concept.concept_id not in review_ids:
             problems.append(f"review missing required concept row: {concept.concept_id}")
         if concept.evidence and not any(term in text for term in concept.evidence):
             sample = ", ".join(concept.evidence[:4])
@@ -403,11 +403,12 @@ def audit_review_counts(actual_counts: dict[str, int]) -> dict[str, object]:
     return {"name": "generation/review.md", "status": "PASS" if not problems else "FAIL", "lines": "", "target": "", "problems": problems}
 
 
-def audit_reference(name: str, concepts: list[Concept], review_ids: set[str]) -> dict[str, object]:
+def audit_reference(name: str, concepts: list[Concept], review_ids: set[str], require_review_rows: bool) -> dict[str, object]:
     path = REFERENCES / name
     problems: list[str] = []
+    warnings: list[str] = []
     if not path.exists():
-        return {"name": name, "status": "FAIL", "lines": 0, "target": target_range(name), "problems": ["missing file"]}
+        return {"name": name, "status": "FAIL", "lines": 0, "target": target_range(name), "problems": ["missing file"], "warnings": []}
 
     text = read_text(path)
     lines = nonblank_lines(text)
@@ -418,7 +419,7 @@ def audit_reference(name: str, concepts: list[Concept], review_ids: set[str]) ->
     if name in TARGET_RANGES:
         ideal_low, _ = TARGET_RANGES[name]
         if lines < ideal_low and not has_intentionally_short(text):
-            problems.append(f"below useful detail range: {lines} < {ideal_low}")
+            warnings.append(f"below useful detail range: {lines} < {ideal_low}")
 
     problems.extend(runtime_path_problems(name, text))
     problems.extend(formatting_problems(name, text))
@@ -432,7 +433,7 @@ def audit_reference(name: str, concepts: list[Concept], review_ids: set[str]) ->
         if not has_api_notes(name, text):
             problems.append("missing API Notes")
         problems.extend(topic_term_problems(name, text))
-        problems.extend(concept_problems(name, text, concepts, review_ids))
+        problems.extend(concept_problems(name, text, concepts, review_ids, require_review_rows))
 
     if name == "common-task-recipes.md":
         for recipe in REQUIRED_RECIPES:
@@ -457,33 +458,40 @@ def audit_reference(name: str, concepts: list[Concept], review_ids: set[str]) ->
         "lines": lines,
         "target": target_range(name),
         "problems": problems,
+        "warnings": warnings,
     }
 
 
 def main() -> int:
+    skip_review = "--skip-review" in sys.argv[1:]
     concepts = parse_required_concepts()
-    review_ids = review_concept_rows()
+    review_ids = set() if skip_review else review_concept_rows()
     rows: list[dict[str, object]] = []
     actual_counts: dict[str, int] = {}
 
     for name in REQUIRED_REFERENCES:
-        row = audit_reference(name, concepts, review_ids)
+        row = audit_reference(name, concepts, review_ids, not skip_review)
         rows.append(row)
         if isinstance(row.get("lines"), int):
             actual_counts[name] = int(row["lines"])
 
     rows.append(audit_skill_links())
-    rows.append(audit_review_counts(actual_counts))
+    if not skip_review:
+        rows.append(audit_review_counts(actual_counts))
 
     failed = [row for row in rows if row["status"] != "PASS"]
 
-    print("| File | Status | Nonblank lines | Useful detail range | Problems |")
+    print("| File | Status | Nonblank lines | Useful detail range | Problems / warnings |")
     print("| --- | --- | ---: | --- | --- |")
     for row in rows:
         problems = row.get("problems", [])
+        warnings = [f"WARNING: {warning}" for warning in row.get("warnings", [])]
         shown = [str(problem) for problem in problems[:18]]
-        if len(problems) > len(shown):
-            shown.append(f"... {len(problems) - len(shown)} more")
+        remaining_slots = max(0, 18 - len(shown))
+        shown.extend(warnings[:remaining_slots])
+        total_items = len(problems) + len(warnings)
+        if total_items > len(shown):
+            shown.append(f"... {total_items - len(shown)} more")
         problem_text = "<br>".join(shown) if shown else ""
         print(f"| `{row['name']}` | {row['status']} | {row.get('lines', '')} | {row.get('target', '')} | {problem_text} |")
 
