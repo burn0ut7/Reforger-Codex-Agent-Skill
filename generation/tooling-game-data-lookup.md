@@ -1,4 +1,4 @@
-# Low-Context Game Data Lookup Tooling
+﻿# Low-Context Game Data Lookup Tooling
 
 This document is the detailed tooling contract for making the Reforger skill useful to Codex without bloating context. It is written for future skill generation and tooling implementation, not for human browsing. Future `SKILL.md` and runtime references must be generated from this model instead of routing Codex toward large API dumps.
 
@@ -78,7 +78,7 @@ Indexes should be regenerated from:
 - `raw/game-data/scripts/`
 - `raw/game-data/api-schema.json`
 - optional sample cache under `raw/samples/`
-- optional wiki/doc inventory under `raw/wiki-docs/`
+- optional wiki/doc inventory generated from `raw/wiki-docs/`
 
 Indexes must prefer exact file and line references over copied text. They should be small enough for a lookup tool to return bounded matches directly into context.
 
@@ -93,9 +93,11 @@ Primary source:
 Optional source:
 
 - `raw/samples/`, official sample mods.
-- `raw/wiki-docs/`, official docs cache.
+- `raw/wiki-docs/`, official docs cache used only during generation.
 
 Codex should open raw files only after a targeted lookup identifies relevant candidates. It should inspect bounded snippets around exact lines, not load broad directories or entire large files unless the file is already small and directly relevant.
+
+Runtime Codex should not rely on `raw/wiki-docs` or live wiki access. Wiki data is collected and indexed during generation according to `generation/wiki-docs-indexing.md`; runtime reference construction is a later workflow.
 
 ## Mandatory API Rule
 
@@ -313,6 +315,8 @@ Suggested defaults:
 
 When a lookup returns too many candidates, Codex should refine the query rather than dump more context.
 
+Usefulness should be measured with `scripts/tests/measure-reforger-search-usefulness.py` after search/index changes. The benchmark report is for human review only; Codex should not use benchmark reports as source truth.
+
 ## How Topical Docs Should Point Into Raw Data
 
 Topical docs should contain lookup keys, not large copied code blocks.
@@ -398,6 +402,8 @@ Codex should treat source authority this way:
 3. Official samples and raw game scripts define implementation patterns.
 4. Existing project code defines local conventions.
 
+Official wiki content must be consumed through generated runtime references, not raw wiki dumps. Runtime references may include official wiki URLs for human follow-up, but Codex must use game-data query tooling for exact API claims.
+
 If sources conflict:
 
 - API data wins for signatures.
@@ -478,3 +484,4 @@ A later tooling implementation should pass these checks:
 - `snippet <file> --line <n>` returns line-numbered bounded source.
 - Normal Codex workflows do not require opening `api-extended.md`.
 - Lookup output is small enough to include in a single answer context.
+

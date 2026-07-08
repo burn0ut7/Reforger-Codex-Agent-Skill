@@ -18,8 +18,8 @@ SCRIPTS_ROOT = GAME_DATA_ROOT / "scripts"
 INDEXES_DIR = GAME_DATA_ROOT / "indexes"
 
 INDEXER_NAME = "index-reforger-data.py"
-INDEXER_VERSION = 2
-INDEX_CONFIG_VERSION = 2
+INDEXER_VERSION = 3
+INDEX_CONFIG_VERSION = 3
 
 EXIT_CURRENT = 0
 EXIT_STALE = 10
@@ -109,6 +109,33 @@ SUBTOPIC_RULES: list[tuple[str, str, list[str]]] = [
     ("workbench-plugin", "workbench-plugin", ["WorkbenchPlugin", "WorkbenchPluginAttribute"]),
     ("editor-ui", "workbench-plugin", ["Workbench", "Widget", "UIWidgets", "MenuItem"]),
     ("resource-browser", "workbench-plugin", ["ResourceBrowser", "ResourceNamePicker", "ResourceManager"]),
+    ("weapon-component", "weapon", ["WeaponComponent", "BaseWeaponComponent", "BaseMuzzleComponent", "MuzzleComponent"]),
+    ("muzzle", "weapon", ["MuzzleComponent", "BaseMuzzleComponent", "Muzzle", "MortarMuzzleComponent"]),
+    ("magazine", "weapon", ["MagazineComponent", "BaseMagazineComponent", "Magazine", "MagazineWell"]),
+    ("fire-mode", "weapon", ["FireMode", "Firearm", "SCR_EFireModeChange"]),
+    ("turret", "weapon", ["Turret", "TurretControllerComponent"]),
+    ("vehicle-component", "vehicle", ["VehicleControllerComponent", "BaseVehicleControllerComponent", "VehicleComponent"]),
+    ("compartment", "vehicle", ["Compartment", "CompartmentManagerComponent", "BaseCompartmentManagerComponent"]),
+    ("vehicle-controls", "vehicle", ["VehicleControllerComponent", "Pilot", "Wheeled", "Throttle", "Brake"]),
+    ("vehicle-damage", "vehicle", ["DamageManagerComponent", "HitZone", "VehicleDamage"]),
+    ("vehicle-lights", "vehicle", ["BaseLightManagerComponent", "LightManagerComponent", "VehicleLight"]),
+    ("character-inventory", "inventory", ["CharacterInventory", "InventoryStorageManagerComponent"]),
+    ("storage", "inventory", ["InventoryStorage", "InventoryStorageManagerComponent", "InventoryStorageSlot"]),
+    ("item-equip", "inventory", ["Equip", "CanStoreItem", "TryInsertItem", "Pickup", "Item"],
+    ),
+    ("magazine-ammo", "inventory", ["Magazine", "Ammo", "Ammunition", "InventoryStorage"]),
+    ("hud", "ui", ["HUD", "InfoDisplay", "SCR_InfoDisplay", "SCR_HUD"]),
+    ("widget", "ui", ["Widget", "WorkspaceWidget", "TextWidget", "ImageWidget"]),
+    ("menu", "ui", ["Menu", "MenuBase", "GetMenuManager"]),
+    ("layout", "ui", [".layout", "CreateWidgets", "Layout"]),
+    ("map-marker", "ui", ["MapMarker", "SCR_MapMarker", "MapEntity"]),
+    ("sound-component", "audio", ["SoundComponent", "SimpleSoundComponent"]),
+    ("sound-event", "audio", ["SoundEvent", "AudioSystem", "SoundEventName"]),
+    ("voice", "audio", ["Voice", "Voiceover", "RadioProtocol"]),
+    ("music", "audio", ["Music", "MusicManager", "SoundEvent"]),
+    ("anim-graph", "animation", ["AnimGraph", "AnimationGraph"]),
+    ("character-animation", "animation", ["CharacterAnimationComponent", "CharacterCommand", "AnimationComponent"]),
+    ("procedural-animation", "animation", ["AnimPhys", "BaseAnimPhysComponent", "ProceduralAnimation"]),
 ]
 
 
@@ -929,6 +956,66 @@ def topic_strength(parsed: ParsedFile, topic: str) -> int:
             strength -= 45
         if any(path_part in file_lower for path_part in ["/worldeditor/", "/editor/", "/building/", "/gamemode/"]):
             strength += 8
+    elif topic == "weapon":
+        strength += len(subtopics & {"weapon-component", "muzzle", "magazine", "fire-mode", "turret"}) * 14
+        if bases & {"BaseWeaponComponent", "WeaponComponent", "BaseMuzzleComponent", "MuzzleComponent", "MagazineComponent", "TurretControllerComponent"}:
+            strength += 30
+        if any(name.endswith(("WeaponComponent", "MuzzleComponent", "MagazineComponent")) for name in classes):
+            strength += 20
+        if any(path_part in file_lower for path_part in ["/weapon/", "/weapons/", "/muzzle", "/magazine", "/turret"]):
+            strength += 16
+        if parsed.evidence.get(topic) and parsed.evidence.get(topic) <= {"Weapon", "Muzzle", "Magazine", "Turret"}:
+            strength -= 15
+    elif topic == "vehicle":
+        strength += len(subtopics & {"vehicle-component", "compartment", "vehicle-controls", "vehicle-damage", "vehicle-lights"}) * 14
+        if bases & {"BaseVehicleControllerComponent", "VehicleControllerComponent", "BaseCompartmentManagerComponent", "BaseLightManagerComponent"}:
+            strength += 30
+        if any("Vehicle" in name or "Compartment" in name for name in classes):
+            strength += 16
+        if any(path_part in file_lower for path_part in ["/vehicle/", "/vehicles/", "/compartment", "/wheeled"]):
+            strength += 16
+        if parsed.evidence.get(topic) and parsed.evidence.get(topic) <= {"Vehicle", "Compartment", "Pilot"}:
+            strength -= 12
+    elif topic == "inventory":
+        strength += len(subtopics & {"character-inventory", "storage", "item-equip", "magazine-ammo"}) * 14
+        if bases & {"InventoryStorageManagerComponent", "InventoryItemComponent", "BaseInventoryStorageComponent"}:
+            strength += 25
+        if any("Inventory" in name or "Storage" in name for name in classes):
+            strength += 18
+        if any(path_part in file_lower for path_part in ["/inventory/", "/inventorysystem/", "/arsenal/"]):
+            strength += 16
+        if parsed.evidence.get(topic) and parsed.evidence.get(topic) <= {"Item", "Inventory"}:
+            strength -= 18
+    elif topic == "ui":
+        strength += len(subtopics & {"hud", "widget", "menu", "layout", "map-marker"}) * 14
+        if any("Widget" in name or "Menu" in name or "HUD" in name or "InfoDisplay" in name for name in classes):
+            strength += 22
+        if any(path_part in file_lower for path_part in ["/ui/", "/hud/", "/menu/", "/map/markers/"]):
+            strength += 16
+        if parsed.evidence.get(topic) and parsed.evidence.get(topic) <= {"UI", "Layout", "Widget"}:
+            strength -= 12
+        if parsed.module == "Autotest":
+            strength -= 25
+    elif topic == "audio":
+        strength += len(subtopics & {"sound-component", "sound-event", "voice", "music"}) * 14
+        if bases & {"SoundComponent", "SimpleSoundComponent"}:
+            strength += 25
+        if any("Sound" in name or "Audio" in name or "Voice" in name for name in classes):
+            strength += 20
+        if any(path_part in file_lower for path_part in ["/audio/", "/sound/", "/voice", "/music"]):
+            strength += 16
+        if parsed.evidence.get(topic) and parsed.evidence.get(topic) <= {"Sound", "Audio", "Ak"}:
+            strength -= 12
+    elif topic == "animation":
+        strength += len(subtopics & {"anim-graph", "character-animation", "procedural-animation"}) * 14
+        if bases & {"BaseAnimPhysComponent", "CharacterAnimationComponent"}:
+            strength += 25
+        if any("Animation" in name or "Anim" in name or "CharacterCommand" in name for name in classes):
+            strength += 20
+        if any(path_part in file_lower for path_part in ["/animation/", "/anim", "/character/commands/", "/cinematics/"]):
+            strength += 16
+        if parsed.evidence.get(topic) and parsed.evidence.get(topic) <= {"Anim", "Animation"}:
+            strength -= 12
     else:
         if parsed.topic_lines.get(topic):
             strength += 10
@@ -944,6 +1031,8 @@ def example_priority(parsed: ParsedFile, topic: str) -> int:
     priority = 20
     if not parsed.generated:
         priority += 25
+    else:
+        priority -= 25
     if parsed.module in {"GameCode", "Game"} or parsed.module.startswith("Workbench"):
         priority += 5
     if parsed.module == "Autotest":

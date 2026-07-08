@@ -1,4 +1,4 @@
-# Reforger Game Data Indexer Design
+﻿# Reforger Game Data Indexer Design
 
 This document is the detailed contract for the future game-data indexer. It is for Codex and future tooling implementation, not for human browsing. The indexer exists so Codex can write accurate Arma Reforger scripts without loading huge raw files or guessing APIs.
 
@@ -258,6 +258,12 @@ Subtopics should be compact and deterministic. Initial high-value subtopics:
 - components: `script-component`, `game-component`, `lifecycle`
 - user actions: `scripted-user-action`, `perform-action`, `can-be-shown`
 - Workbench: `workbench-plugin`, `editor-ui`, `resource-browser`
+- weapons: `weapon-component`, `muzzle`, `magazine`, `fire-mode`, `turret`
+- vehicles: `vehicle-component`, `compartment`, `vehicle-controls`, `vehicle-damage`, `vehicle-lights`
+- inventory: `character-inventory`, `storage`, `item-equip`, `magazine-ammo`
+- UI: `hud`, `widget`, `menu`, `layout`, `map-marker`
+- audio: `sound-component`, `sound-event`, `voice`, `music`
+- animation: `anim-graph`, `character-animation`, `procedural-animation`
 
 Prioritization rules:
 
@@ -266,6 +272,7 @@ Prioritization rules:
 - Prefer `GameCode`, `Game`, and Workbench handwritten files for implementation examples.
 - Include documentation/example raw files such as replication docs when they contain explicit snippets.
 - Penalize incidental broad-topic matches when a file is primarily about another system and better direct examples exist.
+- Penalize generated files for example lookup so generated API truth does not outrank handwritten implementation patterns.
 - Use generated files for signature examples only when no handwritten example exists.
 
 ## `inheritance.jsonl`
@@ -364,7 +371,7 @@ A future implementation must validate:
 - `symbols.jsonl` includes `IEntity`, `ScriptComponent`, `ScriptComponentClass`, `BaseRplComponent`, `RplProp`, `RplRpc`, and `WorkbenchPlugin`.
 - `files.jsonl` includes module, generated/non-generated classification, topic tags, subtopics, and compact evidence.
 - `examples.jsonl` includes example records for `user-action`, `replication`, `component`, and `workbench-plugin`.
-- `examples.jsonl` includes subtopics and evidence for high-value task families such as `spawn-prefab`, `rpl-prop`, `rpc`, `scripted-user-action`, and `workbench-plugin`.
+- `examples.jsonl` includes subtopics and evidence for high-value task families such as `spawn-prefab`, `rpl-prop`, `rpc`, `scripted-user-action`, `workbench-plugin`, `magazine`, `compartment`, `character-inventory`, `hud`, `sound-event`, and `anim-graph`.
 - `inheritance.jsonl` includes:
   - `ScriptComponent -> GenericComponent`,
   - `GenericEntity -> IEntity`,
@@ -372,7 +379,8 @@ A future implementation must validate:
 - `--check` reports stale when `raw/game-data/manifest.json.source.commit` differs from the index manifest.
 - `--check` reports stale when indexer version or config version changes.
 - `--if-needed` skips work when all versions and outputs are current.
-- `scripts/validate-reforger-search.py` passes after rebuilding indexes.
+- `scripts/tests/validate-reforger-search.py` passes after rebuilding indexes.
+- `scripts/tests/measure-reforger-search-usefulness.py` passes after rebuilding indexes and writes a human-review report.
 
 ## Failure Modes To Avoid
 
@@ -394,3 +402,4 @@ Do not include these in the first indexer:
 - Rewriting runtime references.
 - Updating `SKILL.md`.
 - Fetching upstream game data.
+

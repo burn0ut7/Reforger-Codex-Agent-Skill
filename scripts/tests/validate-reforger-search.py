@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 QUERY_SCRIPT = ROOT / "scripts" / "query-reforger-data.py"
 DEFAULT_HUMAN_LOG_DIR = ROOT / "generation" / "search-exports"
 
@@ -118,6 +118,20 @@ def validate_examples_and_files(human_log: bool, human_log_dir: Path | None) -> 
     require(records, "files WorkbenchPlugin returned no records")
     require(any("WorkbenchPlugin" in " ".join(item.get("declaredSymbols") or item.get("baseClasses") or []) or "workbench-plugin" in (item.get("subtopics") or []) for item in records[:10]), "files WorkbenchPlugin lacks expected Workbench anchors")
 
+    subtopic_cases = [
+        ("weapon", "magazine"),
+        ("vehicle", "compartment"),
+        ("inventory", "character-inventory"),
+        ("ui", "hud"),
+        ("audio", "sound-event"),
+        ("animation", "anim-graph"),
+    ]
+    for topic, subtopic in subtopic_cases:
+        payload = run_json(["examples", topic, "--subtopic", subtopic, "--limit", "8"], human_log, human_log_dir)
+        records = payload.get("records") or []
+        require(records, f"examples {topic} --subtopic {subtopic} returned no records")
+        require(any(subtopic in (item.get("subtopics") or []) for item in records[:5]), f"examples {topic} did not rank {subtopic} records near the top")
+
 
 def validate_snippet_and_lookup(human_log: bool, human_log_dir: Path | None) -> None:
     payload = run_json(["snippet", "scripts/GameLib/replication/RplDocs.c", "--line", "1", "--context", "20"], human_log, human_log_dir)
@@ -131,6 +145,28 @@ def validate_snippet_and_lookup(human_log: bool, human_log_dir: Path | None) -> 
     record = first_record(payload, "lookup replicated component")
     require(record.get("matchedTask") == "replicated-component", "lookup did not classify replicated component task")
     require(record.get("apiSymbols") and record.get("examples"), "lookup did not return API symbols and examples")
+
+    expected_tasks = {
+        "make a user action": "user-action",
+        "create weapon script": "weapon",
+        "vehicle compartment": "vehicle",
+        "use CharacterInventory": "inventory",
+        "create HUD widget": "ui",
+        "play a sound event": "audio",
+        "find animation graph examples": "animation",
+    }
+    for query, expected in expected_tasks.items():
+        payload = run_json(["lookup", query], human_log, human_log_dir)
+        record = first_record(payload, f"lookup {query}")
+        require(record.get("matchedTask") == expected, f"lookup {query!r} returned {record.get('matchedTask')!r}, expected {expected!r}")
+        require(record.get("apiSymbols") or record.get("methods"), f"lookup {query!r} did not return API anchors")
+        require(record.get("examples"), f"lookup {query!r} did not return examples")
+
+    payload = run_json(["lookup", "unknown made-up task"], human_log, human_log_dir)
+    record = first_record(payload, "lookup unknown made-up task")
+    require(record.get("matchedTask") is None, "unknown lookup should return explicit unmatched state")
+    require(record.get("suggestedSearches"), "unknown lookup should return suggested searches")
+    require(not record.get("apiSymbols") and not record.get("examples"), "unknown lookup should not return unrelated API/examples")
 
 
 def parse_args() -> argparse.Namespace:

@@ -1,4 +1,4 @@
-# Reforger Game Data Searcher Design
+﻿# Reforger Game Data Searcher Design
 
 This document is the detailed contract for `scripts/query-reforger-data.py`. It is generation-facing and tooling-facing. The searcher exists so Codex can verify Reforger APIs and inspect examples without loading large schema files, API dumps, or broad raw source.
 
@@ -64,7 +64,9 @@ Common options:
 
 `examples` additionally supports `--with-snippets`. This attaches hard-bounded snippets to only the top example records. It is for situations where Codex needs immediate source shape after examples have already been ranked.
 
-`lookup "<task phrase>"` is a deterministic, rule-based task router. It does not use embeddings. It returns a compact bundle of exact API symbols, method records, inheritance candidates, examples, suggested snippet commands, and residual Workbench/runtime/server verification notes. Initial task families are user actions, replicated components, prefab spawning, resource loading, and Workbench plugins.
+`lookup "<task phrase>"` is a deterministic, rule-based task router. It does not use embeddings. It returns a compact bundle of exact API symbols, method records, inheritance candidates, examples, suggested snippet commands, and residual Workbench/runtime/server verification notes. Current task families are user actions, replicated components, prefab spawning, resource loading, Workbench plugins, weapons, vehicles, inventory, UI/HUD, audio, and animation.
+
+When no task rule matches, `lookup` must return an explicit unmatched result with `matchedTask: null`, no unrelated APIs/examples, and suggested next searches. It must not fall back to an unrelated task bundle.
 
 ## Ranking Rules
 
@@ -169,6 +171,12 @@ The searcher is ready when these pass:
 - `examples resource-loading --subtopic spawn-prefab` returns records whose `subtopics` include `spawn-prefab`.
 - `examples replication --with-snippets --limit 2` attaches bounded snippets to top results.
 - `lookup "replicated component"` returns API symbols, inheritance candidates, examples, snippet commands, and verification notes.
+- `lookup "create weapon script"` returns the weapon task, not user-action.
+- `lookup "unknown made-up task"` returns an unmatched result and suggested searches.
+- `examples weapon --subtopic magazine` returns handwritten weapon/magazine examples near the top.
+- `examples vehicle --subtopic compartment` returns vehicle compartment examples near the top.
+- `examples inventory --subtopic character-inventory` returns inventory examples near the top.
+- `examples ui --subtopic hud` returns HUD/widget examples near the top.
 - `files WorkbenchPlugin` returns generated and handwritten Workbench-related files.
 - `snippet scripts/Game/CombatOps/SCR_FastTravelAction.c --line 1 --context 20` returns bounded numbered source.
 - `--json` emits valid JSON for every command.
@@ -177,4 +185,7 @@ The searcher is ready when these pass:
 - Broad queries remain bounded.
 - Snippet rejects paths outside `raw/game-data/scripts/`.
 
-The search quality validator is `scripts/validate-reforger-search.py`. It should be run after searcher or indexer changes. It checks exact API anchors, attributes, inheritance, examples, subtopic filtering, bounded snippets, task lookup, JSON validity, and snippet path rejection. It can also pass `--human-log` through successful query cases for human review exports.
+The search quality validator is `scripts/tests/validate-reforger-search.py`. It should be run after searcher or indexer changes. It checks exact API anchors, attributes, inheritance, examples, subtopic filtering, bounded snippets, task lookup, JSON validity, and snippet path rejection. It can also pass `--human-log` through successful query cases for human review exports.
+
+The usefulness benchmark is `scripts/tests/measure-reforger-search-usefulness.py`. It runs realistic task lookups, scores each task across API precision, example relevance, source grounding, context efficiency, routing safety, snippet usefulness, and verification guidance, then writes a human-review Markdown report. The report is an audit artifact only and must not become Codex source truth.
+

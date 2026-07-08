@@ -97,6 +97,60 @@ TASK_RULES = [
         "examples": [("workbench-plugin", "workbench-plugin"), ("workbench-plugin", "editor-ui")],
         "verification": "Verify plugin menu/command registration in Workbench; generated API signatures do not prove editor integration is visible.",
     },
+    {
+        "name": "weapon",
+        "keywords": ["weapon script", "weapon component", "weapon", "muzzle", "magazine", "ammo", "fire mode", "turret"],
+        "symbols": ["WeaponComponent", "BaseWeaponComponent", "MuzzleComponent", "MagazineComponent"],
+        "methods": [],
+        "inherits": ["WeaponComponent", "BaseWeaponComponent", "MuzzleComponent", "MagazineComponent"],
+        "examples": [("weapon", "weapon-component"), ("weapon", "magazine"), ("weapon", "muzzle")],
+        "verification": "Verify weapon prefab/config setup in Workbench; scripts usually depend on configured weapon, muzzle, magazine, and animation resources.",
+    },
+    {
+        "name": "vehicle",
+        "keywords": ["vehicle", "vehicle compartment", "compartment", "vehicle controller", "vehicle lights", "wheeled"],
+        "symbols": ["VehicleControllerComponent", "BaseCompartmentManagerComponent", "BaseLightManagerComponent"],
+        "methods": [],
+        "inherits": ["VehicleControllerComponent", "BaseCompartmentManagerComponent", "BaseLightManagerComponent"],
+        "examples": [("vehicle", "vehicle-component"), ("vehicle", "compartment"), ("vehicle", "vehicle-lights")],
+        "verification": "Verify vehicle prefab compartments, seats, and component wiring in Workbench; script lookup does not prove prefab configuration.",
+    },
+    {
+        "name": "inventory",
+        "keywords": ["inventory", "characterinventory", "character inventory", "storage", "equip item", "magazine ammo"],
+        "symbols": ["InventoryStorageManagerComponent", "InventoryStorageSlot", "InventoryItemComponent"],
+        "methods": [],
+        "inherits": ["InventoryStorageManagerComponent", "InventoryItemComponent"],
+        "examples": [("inventory", "character-inventory"), ("inventory", "storage"), ("inventory", "item-equip")],
+        "verification": "Verify inventory storage slots and item prefab configuration in Workbench; source lookup confirms APIs and usage patterns only.",
+    },
+    {
+        "name": "ui",
+        "keywords": ["hud widget", "ui widget", "widget", "hud", "menu", "layout", "map marker"],
+        "symbols": ["Widget", "WorkspaceWidget", "TextWidget", "ImageWidget"],
+        "methods": [],
+        "inherits": ["Widget"],
+        "examples": [("ui", "hud"), ("ui", "widget"), ("ui", "layout"), ("ui", "map-marker")],
+        "verification": "Verify layout resources and runtime UI ownership; widget API lookup does not prove a layout exists or is loaded in the right context.",
+    },
+    {
+        "name": "audio",
+        "keywords": ["audio", "sound", "sound event", "play sound", "voice", "music"],
+        "symbols": ["SoundComponent", "AudioSystem", "SimpleSoundComponent"],
+        "methods": [],
+        "inherits": ["SoundComponent", "SimpleSoundComponent"],
+        "examples": [("audio", "sound-component"), ("audio", "sound-event"), ("audio", "voice")],
+        "verification": "Verify sound event names and audio resources in Workbench; source lookup does not validate bank/resource availability.",
+    },
+    {
+        "name": "animation",
+        "keywords": ["animation", "anim graph", "animation graph", "character animation", "animgraph", "procedural animation"],
+        "symbols": ["CharacterAnimationComponent", "BaseAnimPhysComponent", "AnimPhysCommandScripted"],
+        "methods": [],
+        "inherits": ["CharacterAnimationComponent", "BaseAnimPhysComponent"],
+        "examples": [("animation", "anim-graph"), ("animation", "character-animation"), ("animation", "procedural-animation")],
+        "verification": "Verify animation graph/resources and character command integration in Workbench/runtime; source lookup only identifies API and examples.",
+    },
 ]
 
 
@@ -553,18 +607,42 @@ def task_score(query: str, rule: dict[str, Any]) -> int:
     return score
 
 
-def select_task_rule(query: str) -> tuple[dict[str, Any], list[str]]:
+def select_task_rule(query: str) -> tuple[dict[str, Any] | None, list[str]]:
     ranked = sorted(((task_score(query, rule), rule) for rule in TASK_RULES), key=lambda item: (-item[0], item[1]["name"]))
     warnings: list[str] = []
-    if not ranked or ranked[0][0] <= 0:
-        warnings.append("no task rule matched exactly; using broad resource/API lookup")
-        return TASK_RULES[0], warnings
+    if not ranked or ranked[0][0] < 10:
+        warnings.append("no task rule matched; returning unmatched lookup with suggested searches")
+        return None, warnings
     return ranked[0][1], warnings
+
+
+def unmatched_lookup_record(query: str) -> dict[str, Any]:
+    terms = [part for part in re.split(r"[^A-Za-z0-9_]+", query) if part]
+    primary = max(terms, key=len) if terms else query
+    suggestions = [
+        f"py -3 scripts/query-reforger-data.py files {primary}",
+        f"py -3 scripts/query-reforger-data.py examples {primary}",
+        f"py -3 scripts/query-reforger-data.py symbol {primary}",
+        f"py -3 scripts/query-reforger-data.py method {primary}",
+    ]
+    return {
+        "query": query,
+        "matchedTask": None,
+        "apiSymbols": [],
+        "methods": [],
+        "inheritance": [],
+        "examples": [],
+        "suggestedSnippetCommands": [],
+        "suggestedSearches": suggestions,
+        "verification": "No task rule matched. Refine the query or use the suggested searches; do not write API-sensitive Reforger code from this lookup alone.",
+    }
 
 
 def command_lookup(args: argparse.Namespace) -> tuple[list[dict[str, Any]], int, list[str], list[str]]:
     validate_indexes(["symbols", "inheritance", "examples", "manifest"])
     rule, warnings = select_task_rule(args.query)
+    if rule is None:
+        return [unmatched_lookup_record(args.query)], 1, ["manifest"], warnings
     api: list[dict[str, Any]] = []
     methods: list[dict[str, Any]] = []
     inheritance: list[dict[str, Any]] = []
@@ -682,8 +760,9 @@ def text_snippet(record: dict[str, Any]) -> list[str]:
 
 
 def text_lookup(record: dict[str, Any]) -> list[str]:
+    task_name = record.get("matchedTask") if record.get("matchedTask") is not None else "unmatched"
     lines = [
-        f"lookup {record.get('matchedTask')} for: {record.get('query')}",
+        f"lookup {task_name} for: {record.get('query')}",
         f"  verification: {record.get('verification')}",
         "  api symbols:",
     ]
@@ -702,6 +781,10 @@ def text_lookup(record: dict[str, Any]) -> list[str]:
     lines.append("  suggested snippets:")
     for command in record.get("suggestedSnippetCommands") or []:
         lines.append(f"    - {command}")
+    if record.get("suggestedSearches"):
+        lines.append("  suggested searches:")
+        for command in record.get("suggestedSearches") or []:
+            lines.append(f"    - {command}")
     return lines
 
 
