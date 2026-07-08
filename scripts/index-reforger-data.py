@@ -19,7 +19,7 @@ INDEXES_DIR = GAME_DATA_ROOT / "indexes"
 
 INDEXER_NAME = "index-reforger-data.py"
 INDEXER_VERSION = 3
-INDEX_CONFIG_VERSION = 3
+INDEX_CONFIG_VERSION = 4
 
 EXIT_CURRENT = 0
 EXIT_STALE = 10
@@ -82,7 +82,7 @@ TOPIC_RULES: list[tuple[str, list[str]]] = [
     ("resource-loading", ["ResourceName", "Resource.Load", "LoadResource", "ResourceNamePicker", "SpawnEntityPrefab", "PrefabResource"]),
     ("prefab", ["Prefab", "EntitySpawnParams", "SpawnEntityPrefab", "PrefabResource"]),
     ("game-mode", ["GameMode", "BaseGameMode", "SCR_BaseGameMode"]),
-    ("scenario-framework", ["ScenarioFramework", "SCR_ScenarioFramework", "GameMaster", "Task", "Faction"]),
+    ("scenario-framework", ["ScenarioFramework", "SCR_ScenarioFramework"]),
     ("weapon", ["Weapon", "Muzzle", "Magazine", "Firearm", "Turret"]),
     ("vehicle", ["Vehicle", "Compartment", "Wheeled", "Pilot", "BaseLightManagerComponent"]),
     ("inventory", ["Inventory", "InventoryStorage", "Item", "CharacterInventory"]),
@@ -109,6 +109,14 @@ SUBTOPIC_RULES: list[tuple[str, str, list[str]]] = [
     ("workbench-plugin", "workbench-plugin", ["WorkbenchPlugin", "WorkbenchPluginAttribute"]),
     ("editor-ui", "workbench-plugin", ["Workbench", "Widget", "UIWidgets", "MenuItem"]),
     ("resource-browser", "workbench-plugin", ["ResourceBrowser", "ResourceNamePicker", "ResourceManager"]),
+    ("scenario-action", "scenario-framework", ["SCR_ScenarioFrameworkAction", "ScenarioFrameworkAction"]),
+    ("scenario-condition", "scenario-framework", ["SCR_ScenarioFrameworkCondition", "ScenarioFrameworkCondition"]),
+    ("scenario-layer", "scenario-framework", ["SCR_ScenarioFrameworkLayer", "ScenarioFrameworkLayer"]),
+    ("scenario-task", "scenario-framework", ["SCR_ScenarioFrameworkTask", "ScenarioFrameworkTask"]),
+    ("scenario-trigger", "scenario-framework", ["SCR_ScenarioFrameworkTrigger", "ScenarioFrameworkTrigger"]),
+    ("game-mode-base", "game-mode", ["GameMode", "BaseGameMode", "SCR_BaseGameMode"]),
+    ("game-mode-component", "game-mode", ["BaseGameModeComponent", "SCR_BaseGameModeComponent"]),
+    ("game-mode-rules", "game-mode", ["GameOver", "SpawnProtection", "Seizing"]),
     ("weapon-component", "weapon", ["WeaponComponent", "BaseWeaponComponent", "BaseMuzzleComponent", "MuzzleComponent"]),
     ("muzzle", "weapon", ["MuzzleComponent", "BaseMuzzleComponent", "Muzzle", "MortarMuzzleComponent"]),
     ("magazine", "weapon", ["MagazineComponent", "BaseMagazineComponent", "Magazine", "MagazineWell"]),

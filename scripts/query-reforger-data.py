@@ -51,6 +51,19 @@ KIND_ORDER = {
     "property": 5,
 }
 
+BROAD_EXAMPLE_HINTS = {
+    "scenario-framework": {
+        "strong_paths": ["scripts/game/scenarioframework/"],
+        "strong_symbol_prefixes": ["scr_scenarioframework"],
+        "next_search": "py -3 scripts/query-reforger-data.py files SCR_ScenarioFramework --limit 8",
+    },
+    "game-mode": {
+        "strong_paths": ["scripts/game/gamemode/"],
+        "strong_symbol_contains": ["gamemode", "basegamemode"],
+        "next_search": "py -3 scripts/query-reforger-data.py files SCR_BaseGameMode --limit 8",
+    },
+}
+
 TASK_RULES = [
     {
         "name": "user-action",
@@ -226,6 +239,75 @@ def exact_value_match(query: str, values: list[Any]) -> bool:
         if text == query:
             return True
     return False
+
+
+def list_values(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        output: list[str] = []
+        for item in value:
+            output.extend(list_values(item))
+        return output
+    return [str(value)]
+
+
+def lower_values(value: Any) -> list[str]:
+    return [item.lower() for item in list_values(value) if str(item).strip()]
+
+
+def contains_any(text: str, values: list[str]) -> bool:
+    return any(value and value in text for value in values)
+
+
+def starts_with_any(values: list[str], prefixes: list[str]) -> bool:
+    return any(value.startswith(prefix) for value in values for prefix in prefixes)
+
+
+def example_quality(topic: str, record: dict[str, Any]) -> tuple[int, str, str]:
+    query = topic.lower()
+    topic_value = str(record.get("topic") or "").lower()
+    subtopics = lower_values(record.get("subtopics"))
+    file_name = str(record.get("file") or "").lower()
+    symbols = lower_values(record.get("symbols"))
+    bases = lower_values(record.get("baseClasses"))
+    evidence = lower_values(record.get("evidence"))
+    hints = BROAD_EXAMPLE_HINTS.get(query)
+
+    if hints:
+        strong_path = contains_any(file_name, hints.get("strong_paths", []))
+        strong_symbol = starts_with_any(symbols + bases, hints.get("strong_symbol_prefixes", []))
+        strong_contains = contains_any(" ".join(symbols + bases), hints.get("strong_symbol_contains", []))
+        if strong_path:
+            return 0, "strong", "path, declared symbol, or base class directly matches the requested family"
+        if strong_symbol or strong_contains:
+            return 1, "strong", "declared symbol or base class directly matches the requested family"
+        if topic_value == query or query in subtopics:
+            return 2, "weak-broad", "topic tag matched, but top evidence is not in the direct source family"
+        if contains_any(" ".join(evidence), [query]):
+            return 3, "incidental", "only broad evidence matched"
+        return 3, "incidental", "broad topic match has no direct family evidence"
+
+    if topic_value == query or query in subtopics:
+        return 0, "strong", "topic or subtopic directly matches"
+    if query in file_name or contains_any(" ".join(symbols + bases), [query]):
+        return 1, "related", "file path, declared symbol, or base class contains the query"
+    if contains_any(" ".join(evidence), [query]):
+        return 3, "incidental", "only evidence text contains the query"
+    return 2, "related", "matched through secondary indexed text"
+
+
+def example_warning(topic: str, total: int, records: list[dict[str, Any]], has_subtopic: bool) -> list[str]:
+    warnings: list[str] = []
+    hint = BROAD_EXAMPLE_HINTS.get(topic.lower())
+    if not hint:
+        return warnings
+    if not has_subtopic and total > 100:
+        warnings.append(
+            f"broad examples query for {topic!r} returned {total} matches; prefer targeted files/symbol searches for exact source discovery"
+        )
+        warnings.append(f"suggested next query: {hint['next_search']}")
+    return warnings
 
 
 def generated_filter(record: dict[str, Any], args: argparse.Namespace) -> bool:
@@ -424,18 +506,23 @@ def command_examples(args: argparse.Namespace) -> tuple[list[dict[str, Any]], in
         if score is None:
             continue
         total += 1
+        quality_rank, quality, ranking_evidence = example_quality(args.topic_name, record)
+        output_record = dict(record)
+        output_record["searchQuality"] = quality
+        output_record["rankingEvidence"] = ranking_evidence
         sort_key = (
             score,
+            quality_rank,
             -int(record.get("priority") or 0),
             0 if not record.get("generated") else 1,
             str(record.get("file") or "").lower(),
         )
-        matches.append((sort_key, record))
+        matches.append((sort_key, output_record))
     matches.sort(key=lambda item: item[0])
     records = [record for _, record in matches[: limit_for(args)]]
     if getattr(args, "with_snippets", False):
         attach_example_snippets(records, max_records=3, max_lines=60)
-    return records, total, ["examples"], []
+    return records, total, ["examples"], example_warning(args.topic_name, total, records, bool(getattr(args, "subtopic", None)))
 
 
 def command_files(args: argparse.Namespace) -> tuple[list[dict[str, Any]], int, list[str], list[str]]:
@@ -550,11 +637,36 @@ def bounded_source_excerpt(file_name: str, line_range: list[int] | tuple[int, in
 def attach_example_snippets(records: list[dict[str, Any]], max_records: int, max_lines: int) -> None:
     for record in records[:max_records]:
         try:
-            snippet = bounded_source_excerpt(str(record.get("file") or ""), record.get("suggestedLines"), max_lines)
+            line = example_snippet_anchor_line(record)
+            snippet = bounded_source_excerpt(str(record.get("file") or ""), [line, line + max_lines - 1], max_lines)
         except RuntimeError:
             snippet = None
         if snippet:
             record["snippet"] = snippet
+
+
+def example_snippet_anchor_line(record: dict[str, Any]) -> int:
+    suggested = record.get("suggestedLines") or [1, 1]
+    fallback = suggested[0] if isinstance(suggested, list) and suggested else 1
+    terms = list_values(record.get("symbols")) + list_values(record.get("baseClasses")) + list_values(record.get("evidence"))
+    terms = [term for term in terms if len(term) >= 4]
+    if not terms:
+        return int(fallback)
+    try:
+        path = normalize_snippet_path(str(record.get("file") or ""))
+        lines = path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+    except RuntimeError:
+        return int(fallback)
+    symbol_terms = [term for term in list_values(record.get("symbols")) if len(term) >= 4]
+    search_groups = [symbol_terms, [term for term in terms if term not in symbol_terms]]
+    for group in search_groups:
+        for line_number, line in enumerate(lines, start=1):
+            lowered = line.lower()
+            for term in group:
+                token = term.lower()
+                if re.search(rf"\b{re.escape(token)}\b", lowered):
+                    return line_number
+    return int(fallback)
 
 
 def make_query_args(command: str, **values: Any) -> argparse.Namespace:
@@ -658,10 +770,11 @@ def command_lookup(args: argparse.Namespace) -> tuple[list[dict[str, Any]], int,
         found, _total, _indexes, _warnings = command_inherits(make_query_args("inherits", class_name=class_name, limit=8))
         inheritance.extend(found)
     for topic, subtopic in rule["examples"]:
-        found, _total, _indexes, _warnings = command_examples(
+        found, _total, _indexes, example_warnings = command_examples(
             make_query_args("examples", topic_name=topic, subtopic=subtopic, handwritten_only=True, limit=4, with_snippets=False)
         )
         examples.extend(found)
+        warnings.extend(example_warnings)
 
     api = unique_records(api, ["kind", "qualifiedName", "name", "owner"], 10)
     methods = unique_records(methods, ["kind", "qualifiedName", "name", "owner"], 10)
@@ -672,14 +785,21 @@ def command_lookup(args: argparse.Namespace) -> tuple[list[dict[str, Any]], int,
         current = dedup_examples.get(key)
         if current is None or int(example.get("priority") or 0) > int(current.get("priority") or 0):
             dedup_examples[key] = example
-    examples = sorted(dedup_examples.values(), key=lambda record: (-int(record.get("priority") or 0), str(record.get("file") or "").lower()))[: limit_for(make_query_args("examples", limit=8))]
+    quality_order = {"strong": 0, "related": 1, "weak-broad": 2, "incidental": 3}
+    examples = sorted(
+        dedup_examples.values(),
+        key=lambda record: (
+            quality_order.get(str(record.get("searchQuality") or ""), 2),
+            -int(record.get("priority") or 0),
+            str(record.get("file") or "").lower(),
+        ),
+    )[: limit_for(make_query_args("examples", limit=8))]
     if getattr(args, "with_snippets", False):
         attach_example_snippets(examples, max_records=3, max_lines=60)
 
     snippet_commands = []
     for example in examples[:5]:
-        lines = example.get("suggestedLines") or [1, 1]
-        line = lines[0] if isinstance(lines, list) and lines else 1
+        line = example_snippet_anchor_line(example)
         snippet_commands.append(f"py -3 scripts/query-reforger-data.py snippet {example.get('file')} --line {line} --context 30")
 
     record = {
@@ -722,6 +842,8 @@ def text_example(record: dict[str, Any]) -> list[str]:
         f"  evidence: {', '.join(record.get('evidence') or [])}",
         f"  symbols: {', '.join(record.get('symbols') or [])}",
         f"  bases: {', '.join(record.get('baseClasses') or [])}",
+        f"  search quality: {record.get('searchQuality') or 'unspecified'}",
+        f"  ranking evidence: {record.get('rankingEvidence') or 'unspecified'}",
         f"  reason: {record.get('reason')}",
         f"  generated: {str(bool(record.get('generated'))).lower()}",
     ]
@@ -850,6 +972,26 @@ def sanitize_filename_part(value: str) -> str:
     return value or "query"
 
 
+def parsed_inputs(args: argparse.Namespace) -> dict[str, Any]:
+    output: dict[str, Any] = {}
+    for key, value in sorted(vars(args).items()):
+        if key in {"human_log_dir"}:
+            output[key] = str(value) if value else None
+        elif isinstance(value, Path):
+            output[key] = str(value)
+        else:
+            output[key] = value
+    return output
+
+
+def human_result_rows(command: str, records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if command == "examples":
+        return records[:10]
+    if command == "lookup" and records:
+        return list(records[0].get("examples") or [])[:10]
+    return []
+
+
 def write_human_log(args: argparse.Namespace, records: list[dict[str, Any]], total: int, indexes_scanned: list[str], warnings: list[str], text_output: str) -> Path:
     out_dir = Path(args.human_log_dir or DEFAULT_HUMAN_LOG_DIR)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -878,6 +1020,7 @@ def write_human_log(args: argparse.Namespace, records: list[dict[str, Any]], tot
         f"- Indexes scanned: `{', '.join(indexes_scanned)}`",
         f"- Limit: `{meta.get('limit')}`",
         f"- Filters: `{json.dumps(meta['filters'], sort_keys=True)}`",
+        f"- Parsed inputs: `{json.dumps(parsed_inputs(args), sort_keys=True, default=str)}`",
         "",
         "## Results",
         "",
@@ -887,6 +1030,29 @@ def write_human_log(args: argparse.Namespace, records: list[dict[str, Any]], tot
     if warnings:
         lines.extend(["", "## Warnings", ""])
         lines.extend(f"- {warning}" for warning in warnings)
+    review_rows = human_result_rows(args.command, records)
+    if review_rows:
+        lines.extend(
+            [
+                "",
+                "## Top Result Review",
+                "",
+                "| Rank | File | Topic | Subtopics | Quality | Evidence | Reason |",
+                "| --- | --- | --- | --- | --- | --- | --- |",
+            ]
+        )
+        for index, record in enumerate(review_rows, start=1):
+            lines.append(
+                "| {rank} | `{file}` | `{topic}` | `{subtopics}` | `{quality}` | `{evidence}` | {reason} |".format(
+                    rank=index,
+                    file=record.get("file") or "",
+                    topic=record.get("topic") or "",
+                    subtopics=", ".join(record.get("subtopics") or []),
+                    quality=record.get("searchQuality") or "",
+                    evidence=", ".join(record.get("evidence") or []),
+                    reason=one_line(record.get("rankingEvidence") or record.get("reason") or "", 120).replace("|", "\\|"),
+                )
+            )
     lines.extend(["", "## Output", "", "```text", text_output.rstrip(), "```", ""])
     path.write_text("\n".join(lines), encoding="utf-8", newline="\n")
     return path
