@@ -1,110 +1,103 @@
 # Arma Reforger Codex Skill
 
-A Codex skill for Arma Reforger modding, Enfusion Script, Workbench data, and Reforger API lookup.
+A Codex skill for Arma Reforger modding, Enfusion Script, Workbench workflows, and source-backed Reforger API lookup.
 
-## What
+This skill helps Codex answer and work on Reforger tasks without guessing from general game-engine memory. It gives Codex a compact router, focused references, and local game-data search so answers can be grounded in Reforger-specific source information.
 
-This skill gives Codex a Reforger-specific router and reference set. It helps an AI assistant understand where to look before giving advice or making code changes.
+## What It Helps With
 
-It is intended for:
+Use this skill when you want Codex help with:
 
-- Learning Arma Reforger scripting and mod structure.
-- Reviewing Enfusion Script and Reforger mod code.
-- Explaining general Reforger concepts and workflows.
-- Giving practical advice for entities, components, networking, prefabs, configs, Workbench, scenarios, terrain, assets, weapons, vehicles, audio, animation, servers, and Workshop packaging.
-- Looking up APIs from extracted game script data instead of relying only on model memory.
+- Enfusion Script and Reforger mod code.
+- Entities, components, lifecycle, user actions, and gameplay patterns.
+- Multiplayer, authority, replication, RPCs, and dedicated-server concerns.
+- Resources, prefabs, configs, catalogs, and Workbench-authored data.
+- Scenario Framework, Game Master, factions, tasks, and game modes.
+- Terrain, World Editor tools, navmesh, assets, weapons, vehicles, gear, UI, audio, animation, AI, servers, and Workshop packaging.
+- Reviewing patches for Reforger API mistakes and incorrect engine assumptions.
 
-It is not intended to blindly generate large amounts of SLOP code. The goal is grounded help: concepts, review, small correct changes, examples, and API-aware guidance.
+The goal is practical help: explanations, reviews, small correct changes, source-backed examples, and API-aware guidance.
 
-## Why
+## Why It Exists
 
-Arma Reforger has a large API surface, a distinct scripting language, and documentation spread across game files, official wiki pages, generated API docs, and official samples. Game updates can change APIs and behavior.
+Arma Reforger has its own engine, scripting language, editor workflows, data model, and multiplayer rules. It is easy for a general AI model to accidentally lean on Unity, Unreal, C#, SQF, or Arma 3 assumptions.
 
-This skill keeps Codex grounded in local, refreshable source data:
+This skill keeps Codex focused on Reforger by using:
 
-- Official Bohemia wiki/docs.
-- Official Bohemia sample mods.
-- Extracted Arma Reforger game script/API data.
+- Curated runtime references for the major Reforger systems.
+- Extracted game script data for exact API names, signatures, inheritance, and source locations.
+- Bounded source snippets and examples when implementation patterns matter.
+- Strict rules that push Codex to verify APIs before writing code.
 
-`SKILL.md` stays compact and acts as the router. Detailed information lives in focused reference files that Codex opens only when needed.
+## Key Features
+
+- **Focused references**: 26 runtime references cover scripting, Workbench, resources, networking, scenarios, world tools, assets, weapons, vehicles, animation, audio, UI, AI, servers, and common task recipes.
+- **Exact API lookup**: Codex can query extracted Reforger game data instead of relying on memory.
+- **Source-backed examples**: Codex can find relevant game-source examples and bounded snippets before proposing API-sensitive code.
+- **Piecemeal work strategy**: Complex tasks are broken into small verified slices instead of broad speculative rewrites.
+- **API and idiom verification**: Generated code should verify meaningful Reforger API calls and common usage patterns, including helper calls.
+- **Verification mindset**: The skill reminds Codex to call out anything that still needs Workbench, runtime, multiplayer, server, editor, packaging, or asset validation.
 
 ## Install
 
-Place this folder in your Codex skills directory.
+Place this skill folder in your Codex skills directory.
 
-On Windows, the usual location is:
+On Windows, a typical path is:
 
 ```text
 C:\Users\<you>\.codex\skills\reforger
 ```
 
-The required skill file should be here:
+The skill file should be here:
 
 ```text
 C:\Users\<you>\.codex\skills\reforger\SKILL.md
 ```
 
-After that, start a new Codex session so the skill can be discovered.
+Start a new Codex session after installing so Codex can discover the skill.
 
 ## How To Use
 
-Ask Codex to use the skill when working with Reforger:
+Ask Codex to use the Reforger skill when working on Arma Reforger tasks:
 
 ```text
-Use $reforger to review this ScriptComponent.
+Use $reforger to review this ScriptComponent for API mistakes.
 ```
 
 ```text
-Use $reforger to explain how replication should work for this action.
+Use $reforger to explain how replication should work for this user action.
 ```
 
 ```text
-Use $reforger to help create a small component that prints debug info.
+Use $reforger to help make a small component that spawns a prefab.
 ```
 
-Codex should read `SKILL.md` first, then open the relevant reference under `references/`. For uncertain APIs, it should check the topical reference first, then `references/api-main.md`, then `references/api-extended.md`.
+```text
+Use $reforger to find the right Reforger API for a HUD widget.
+```
 
-## Optional: Regenerate
+Codex should read the skill, open the relevant references, search game data for exact APIs, inspect examples or snippets when needed, and then give a grounded answer or focused change.
 
-You can use the skill as-is. You do not need to regenerate it every time.
+## Updating Game Data
 
-Regeneration is useful when Arma Reforger updates, the official docs change, or you want to rebuild the references from newer raw data.
-
-Regeneration requirements:
-
-- PowerShell for the included Windows refresh scripts.
-- Python for the documentation/API helper scripts.
-- Arma Reforger installed locally if you want to refresh extracted game data.
-- Git if you want to refresh the official sample repository.
-
-This skill is written for Codex, but the references and generation approach can be adapted for other AI agents with some tweaking.
-
-The intended regeneration flow is:
-
-1. Ask Codex to use this skill and follow `generation/design.md`.
-2. Refresh raw data only if asked or if data is missing.
-3. Pull game script/API data, wiki/docs data, and official samples as needed.
-4. Build `references/api-extended.md` from all extracted APIs.
-5. Use `generation/design.md` to rebuild the focused references and `SKILL.md`.
-6. Review `generation/review.md` after generation.
-
-Useful commands for raw data refresh:
+Most users can use the skill as-is. If the local Reforger game data is missing or stale, refresh only the raw game data with:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\update-reforger-data.ps1
-py -3 .\scripts\update-reforger-wiki-docs.py
-powershell -ExecutionPolicy Bypass -File .\scripts\update-reforger-samples.ps1
-py -3 .\scripts\build-reforger-extended-api-reference.py
+py -3 scripts\update-reforger-data.py --if-needed
 ```
 
-`generation/design.md` contains the full generation rules. `generation/review.md` is overwritten on each full generation run and summarizes what was created, refreshed, skipped, or needs review.
+Normal skill use does not require live wiki access or running generation tools.
 
-## Source Priority
+## What This Is Not
 
-When regenerating, sources are prioritized in this order:
+- Not a replacement for Workbench, in-game, multiplayer, dedicated-server, packaging, or asset validation.
+- Not a bulk code generator.
+- Not permission for Codex to skip API lookup.
+- Not a general Unity, Unreal, C#, SQF, or Arma 3 assistant.
+- Not dependent on live wiki scraping during normal use.
 
-1. Official wiki/docs as the source of truth.
-2. Official Bohemia samples for concrete examples and layouts.
-3. Extracted game API data for exact names, signatures, inheritance, and source paths.
+## For Contributors
 
-Generated references are outputs, not source material for future generations.
+The main runtime pieces are `SKILL.md`, `references/`, `raw/game-data/`, `scripts/query-reforger-data.py`, and `scripts/update-reforger-data.py`.
+
+The deeper generation design is documented under `generation/` for contributors who are rebuilding the skill and references. End users do not need that workflow for normal use.

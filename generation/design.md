@@ -1,658 +1,260 @@
-# Arma Reforger Skill Rebuild Design
-
-This file is the operating brief for Codex when rebuilding the Arma Reforger skill from local raw data and existing repository scripts.
-
-The goal is repeatable skill creation, not one-off notes. A rebuild should produce a compact `SKILL.md`, useful runtime references under `references/`, an exhaustive generated API fallback, and an honest `generation/review.md` using the raw cache and checked-in scripts already present in this repository.
-
-## Core Contract
-
-Codex must create the skill from source data, not from previous generated output.
-
-Use:
-
-- Official wiki/docs cache under `raw/wiki-docs/`.
-- Official sample mods under `raw/samples/`.
-- Extracted API data under `raw/game-data/`.
-- Existing checked-in scripts under `scripts/`.
-
-Do not use:
-
-- Old `SKILL.md`.
-- Old runtime references.
-- Old `generation/review.md`.
-- Model memory as source truth.
-- Internet search unless the user explicitly asks to refresh from the internet.
-- Newly created one-off generator scripts for topical references.
-
-The previous failure mode was repeated filler that passed structural checks while being useless. This design prevents that by making source inventory, topic-by-topic curation, manual usefulness review, and `SKILL.md`-last sequencing mandatory.
-
-The second failure mode is over-compression: references that are structurally neat but too shallow to replace reading the wiki. This is also a failed rebuild. Runtime references must be dense, source-grounded operating manuals built from the wiki/docs, samples, and API data. They should be full of retained wiki procedure, warnings, field names, exact Workbench actions, config/resource shapes, source caveats, and implementation-sensitive details. Do not trade away useful detail for brevity.
-
-## Allowed Scripts
-
-Codex may run existing checked-in scripts:
-
-- `scripts/update-reforger-data.ps1`
-- `scripts/update-reforger-wiki-docs.py`
-- `scripts/update-reforger-samples.ps1`
-- `scripts/build-reforger-extended-api-reference.py`
-- `scripts/audit-references.py`
-
-Use update scripts only when raw data is missing or the user explicitly asks to refresh.
-
-Use `scripts/build-reforger-extended-api-reference.py` to generate only:
-
-```text
-references/api-extended.md
-```
-
-Use `scripts/audit-references.py` as a quality aid, not as proof that the skill is good.
-
-Do not create temporary or new scripts such as:
-
-- `generate-reforger-skill.py`
-- `build-references.py`
-- `tmp_rebuild_runtime.py`
-- Any script that writes topical references, `api-main.md`, `SKILL.md`, or `generation/review.md`.
-
-If a checked-in helper script must change, treat that as a separate explicit repository edit. Do not smuggle script changes into an ordinary skill rebuild.
-
-## Source Authority
-
-Use sources in this order:
-
-1. Official wiki/docs: rules, workflows, constraints, and Workbench procedures.
-2. Official sample mods: concrete project layouts, examples, and patterns.
-3. Extracted API data: exact signatures, inheritance, attributes, enums, and source locations.
-
-Resolve conflicts this way:
-
-- Docs beat samples for workflow rules.
-- API data beats both for exact signatures.
-- Samples are examples, not universal templates.
-- If a source is missing or ambiguous, label uncertainty rather than inventing details.
-
-## Non-Negotiable Detail Retention
-
-The topical references are not summaries. They are the runtime documentation Codex will use instead of opening the raw wiki cache during normal Reforger tasks. Build them as detailed, practical, source-grounded references.
-
-Preserve aggressively:
-
-- Ordered Workbench procedures, including menu/tool names, setup prerequisites, rebuild/regeneration steps, and verification steps.
-- Warnings, limitations, caveats, branch/version assumptions, editor/runtime differences, and multiplayer/server distinctions.
-- Config shapes, field names, resource extensions, prefab/entity/component relationships, directory layouts, command shapes, startup/config snippets, and `.gproj`/Workshop metadata relationships.
-- API names, attributes, callback names, enum names, class pairing rules, lifecycle order, authority/role terms, and exact signatures once verified.
-- Sample mod layout patterns, file families, representative script/config excerpts, and how samples map to real implementation tasks.
-- Source-specific gotchas that would change how Codex writes code, config, prefab wiring, editor tooling, server setup, asset integration, or deployment.
-
-Compress only:
-
-- Wiki navigation, page chrome, image placeholders, screenshot captions that do not carry procedural information, repeated introductory prose, and duplicate statements already preserved elsewhere.
-- Giant raw serialized bodies only after extracting the meaningful fields, nesting relationships, resource references, inheritance, and implementation implications.
-- Large tables only after preserving every field or row category that affects implementation decisions.
-
-Do not replace a wiki workflow with a high-level paraphrase if the original page contains concrete steps. Do not replace multiple source pages with a generic checklist. If a source has useful details, those details must survive in the relevant reference, even when that makes the file long.
-
-Short references are allowed only when the source packet proves the topic is genuinely sparse. "Concise" is not a goal for topical references; usefulness and detail retention are the goal. Prefer a long, well-sectioned reference over a compact guide that forces Codex back to raw docs.
-
-## Specific Changes Required For The Next Expansion Pass
-
-The current acceptable `SKILL.md` shape is a compact router plus guardrails. Do not move topic detail into `SKILL.md`. Strengthen `SKILL.md` only when it improves runtime behavior, such as requiring Codex to read the relevant topical reference, classify the task surface, verify APIs, and state residual Workbench/runtime/server validation.
-
-The next reference expansion pass must make these concrete changes:
-
-- Expand every topical reference from its source packet until it can replace opening the ordinary wiki page for normal task execution.
-- Convert wiki procedures into retained ordered steps, not summary paragraphs.
-- Preserve exact menu names, editor panels, resource extensions, config field names, component relationships, command shapes, and warning/caveat text when they affect implementation.
-- Add per-reference "wiki procedure" sections for the official workflows in that topic.
-- Add per-reference "implementation surfaces" sections that name the data/script/editor/server/assets touched by the topic.
-- Add per-reference "source-backed examples" sections using official samples, verified API signatures, or explicit no-example rationale.
-- Add per-reference "failure diagnosis" sections that map observed symptoms to likely missing Workbench/data/API/server steps.
-- Replace generic checklist-only material with source-specific detail. Checklists can remain only after the source-specific sections exist.
-- Expand `examples-patterns.md` into a dense sample inventory with file families, layout patterns, and which references each sample should route to.
-- Expand `api-main.md` with curated grouped signatures for normal coding work before falling back to `api-extended.md`.
-- Keep generated `api-extended.md` generated by the checked-in builder; do not manually curate the large generated body during ordinary rebuilds.
-
-Concrete examples of unacceptable compression:
-
-- "Configure the prefab" without naming components, resource families, inherited prefab behavior, catalog/faction/Game Master consumers, or validation steps available from source.
-- "Use the Audio Editor" without retaining project creation, node chain, Sound node event naming, component `.acp` attachment, and debug workflow details.
-- "Set up a vehicle" without retaining asset preparation, prefab configuration, simulation configuration, physics/seats/damage/audio/action surfaces, and runtime tests.
-- "Use replication" without retaining authority/proxy/owner roles, `RplProp`, RPC direction/receiver/reliability, streaming/JIP, and dedicated-server implications.
-- "Check Workbench" without naming the specific editor, menu/panel/tool, Resource Manager validation, Script Editor/Remote Console use, or save/reopen action.
-
-## Rebuild Output
-
-A complete rebuild produces:
-
-```text
-SKILL.md
-references/
-  overview.md
-  scripting-core.md
-  scripting-language.md
-  entity-component-lifecycle.md
-  networking-multiplayer-replication.md
-  resources-prefabs-configs.md
-  workbench-tools-debugging.md
-  scenario-framework-game-master.md
-  terrain-world-editor.md
-  assets-weapons-vehicles-animation-audio.md
-  server-runtime-packaging.md
-  examples-patterns.md
-  common-task-recipes.md
-  api-main.md
-  api-extended.md
-generation/
-  review.md
-```
-
-Runtime files are `SKILL.md` and `references/*.md`. They must be usable without `raw/`.
-
-`generation/review.md` is an audit report. It may contain exact raw paths. Runtime files must not.
-
-## Rebuild Sequence
-
-Run these phases in order. Do not write `SKILL.md` until Phase 7.
-
-## Piecemeal Reference Mode
-
-Use this mode when the user asks to rebuild, generate, improve, or review one reference or a small named set of references.
-
-Rules:
-
-- Work only on the named reference or named references.
-- Do not edit `SKILL.md`.
-- Do not edit unrelated references, except for a narrow cross-link fix explicitly caused by the current reference.
-- Do not rewrite `generation/review.md` as if the whole skill is complete.
-- Record partial status as `INCOMPLETE` or leave review updates for a later full rebuild, depending on the user's request.
-- Still use raw sources, source authority, API verification, and manual usefulness review.
-
-For each reference in piecemeal mode, complete this mini-sequence:
-
-1. Build a source packet.
-2. Draft from the source packet.
-3. Review for missing context, useful detail, examples, APIs, and traps.
-4. Revise immediately if the reference is thin, generic, repetitive, or missing important source detail.
-5. Stop after the named reference work is complete.
-
-Do not use piecemeal mode to create multiple files for the same topic. If one topic is large, keep the topic in its assigned reference and use clear sections inside that file. Recommend splitting only when the source material belongs to a distinct topic already represented by another reference or when a new distinct topic is truly needed.
-
-### Phase 0: Workspace And Raw Data Check
-
-Before writing runtime files:
-
-- Run `git status --short`.
-- Identify existing user changes and avoid overwriting unrelated work.
-- Check whether raw wiki docs, samples, and game API data exist.
-- Refresh only missing data, unless the user requested a refresh.
-- Confirm `scripts/build-reforger-extended-api-reference.py` exists.
-
-If the user only asks to update this design, stop after editing this file.
-
-### Phase 1: Source Inventory
-
-Build a source inventory before writing references.
-
-For each required reference, identify:
-
-- Relevant wiki/docs pages.
-- Relevant sample mods and files.
-- Relevant API classes, methods, attributes, enums, or global functions.
-- Known uncertainty or project-specific verification needs.
-
-This can be done with shell search, file reads, and the existing API/index files. Do not write a new inventory generator.
-
-The inventory must be recorded later in `generation/review.md` as exact raw provenance per reference.
-
-For each reference, create a source packet before drafting. The source packet is a working checklist, not a runtime artifact. It must include:
-
-- Wiki/docs selected for the reference.
-- Wiki/docs considered but deferred, with the reason.
-- Sample mods and files selected for concrete examples.
-- Sample files considered but deferred, with the reason.
-- API symbols, attributes, enums, and signatures to verify.
-- High-value details that must survive compression.
-- Ordered wiki procedures and field/config/resource names that must be retained verbatim or near-verbatim in compact form.
-- Wiki warnings/caveats that must be preserved because they affect implementation or verification.
-- Sample excerpts or patterns that should be represented in the runtime reference.
-- Uncertainty or project-specific verification notes that must be preserved.
-- Cross-topic details that should be routed to another reference instead of duplicated.
-
-Do not draft the reference until the source packet is complete enough to avoid obvious missed context.
-
-If the source packet for a reference does not include enough concrete wiki/doc detail to produce a dense reference, stop and expand the source packet before drafting. Do not fill gaps with model memory, generic Reforger advice, or broad "verify this" language.
-
-### Phase 2: Topic Reference Drafts
-
-Write references one topic at a time from the source inventory.
-
-Each topical reference must include:
-
-- When to read this reference.
-- Search terms.
-- Source authority summary without local raw paths.
-- Common workflows near the top.
-- Concrete Reforger-specific guidance.
-- Source-backed examples or an explicit no-example rationale.
-- API lookup notes.
-- Common traps.
-- Review checklist.
-
-References must be useful, not artificially short. Preserve as much actionable detail from the raw wiki/docs as possible:
-
-- Keep concrete workflows, prerequisites, order-sensitive Workbench steps, warnings, field names, config shapes, command shapes, and API names.
-- Keep source-specific caveats that would change how Codex writes code or config.
-- Keep examples when they teach an implementation pattern, even if they need to be shortened.
-- Compress repeated prose, screenshots, navigation, UI fluff, and non-actionable background.
-- Summarize large tables or serialized config/prefab bodies only after preserving the fields and relationships that matter for implementation.
-- If preserving useful detail makes a reference long, prefer a well-structured long reference over a thin summary.
-
-Line-count targets from `scripts/audit-references.py` are useful lower-bound heuristics, not padding goals. Falling below them is acceptable only when the source packet and `generation/review.md` justify that the topic is genuinely sparse. For normal Reforger topics with substantial wiki coverage, references should be near or above the audit's useful-detail range.
-
-A short reference is acceptable only when source material is genuinely sparse or narrow and the reference still preserves the important operational details. A short reference for scripting, lifecycle, networking, resources/prefabs/configs, Workbench, terrain, assets, server, examples, recipes, or API curation is presumed incomplete unless the review proves otherwise.
-
-Each topical reference should include detailed wiki-derived sections, not just routing prose:
-
-- Prerequisites and setup assumptions.
-- Step-by-step workflows from the docs.
-- Important fields, options, resource types, and file/folder shapes.
-- Source warnings and failure modes.
-- Sample-backed patterns and concise excerpts.
-- API verification notes with exact symbols to check.
-- Practical validation steps in Workbench, runtime, multiplayer, server, or packaging context.
-
-If one assigned reference becomes too broad, do not split it into multiple files for the same topic. Instead:
-
-- Add clear sections and a table of contents inside the same reference.
-- Move clearly unrelated material to the existing reference for that other topic.
-- Recommend a new reference only when the source material represents a distinct topic that does not fit any existing reference.
-- Record the split recommendation in `generation/review.md` or the final response instead of creating new files during an ordinary rebuild.
-
-Reject and rewrite any reference that contains:
-
-- Repeated numbered filler.
-- Generic “verify everything” bullets.
-- High-level summaries where the source wiki contains concrete ordered steps.
-- Thin routing-only content for a topic with substantial wiki coverage.
-- Placeholder phrases such as "follow the official workflow" without preserving the workflow's important steps.
-- Vague statements such as "configure the prefab" without naming the relevant fields, resource types, component relationships, or verification steps available from source.
-- Audit-marker sections.
-- Raw crawler headings.
-- Copied navigation text.
-- Large uncurated source dumps.
-- Local raw paths.
-- Examples not tied to docs, samples, or verified API data.
-
-### Phase 3: Topic Reference Review
-
-After each reference draft, review it before moving on.
-
-Ask:
-
-- Can Codex use this to complete a real Reforger task?
-- Did the source packet include every high-signal raw wiki/doc page for this topic?
-- Did the reference preserve as much useful wiki detail as practical without copying navigation or filler?
-- Would a future Codex still need to open the raw wiki page for ordinary task execution because this reference omitted concrete steps or fields? If yes, revise.
-- Are wiki procedures represented as actionable steps rather than broad summaries?
-- Were important prerequisites, ordered steps, warnings, config fields, and Workbench actions retained?
-- Were source details compressed only when they were repetitive, non-actionable, or routed to a better reference?
-- Does it preserve script/data/editor/server boundaries?
-- Are lifecycle, networking, resource, Workbench, packaging, or authority risks called out where relevant?
-- Are examples concrete and source-grounded?
-- Are exact APIs verified or routed to API lookup?
-- Is there any repeated filler?
-
-If the answer is no, revise the reference immediately.
-
-Do not mark a reference reviewed if it is merely readable. It must be operationally rich enough to solve realistic tasks in its topic area.
-
-### Phase 4: `api-main.md`
-
-Write `api-main.md` after topical references, because it should reflect the APIs that normal tasks actually need.
-
-It must be curated manually from docs, samples, and API data.
-
-Put common signatures near the top. Do not make an alphabetical dump.
-
-Cover:
-
-- `IEntity` transform, origin, orientation, component lookup, and event-mask APIs.
-- `ScriptComponent`, `ScriptComponentClass`, `GenericComponent`, `GenericEntity`, and lifecycle/owner APIs.
-- `Resource`, `ResourceName`, config, prefab, and resource-loading APIs.
-- `Game`, world, spawn, delete, and player-access APIs when present.
-- `BaseRplComponent`, `RplProp`, `RplRpc`, `OnRpl`, role, ownership, and replication serialization APIs.
-- Input, user action, and widget/UI APIs.
-- Workbench plugin, Script Editor, World Editor, and Resource Manager APIs.
-- Weapon, vehicle, inventory, audio, animation, task, faction, and scenario lookup groups.
-
-If an expected common API is absent or only appears in samples/comments, say so explicitly.
-
-### Phase 5: `api-extended.md`
-
-Generate the exhaustive fallback:
+# Reforger Skill Generation Design
+
+This is the generation-only master design for the future Reforger `SKILL.md`.
+Use this file, the current `references/` set, and the approved game-data tooling model to generate the runtime skill.
+
+Do not use an existing `SKILL.md` as source material for future generations. `SKILL.md` is an output artifact, not an input authority. If this design conflicts with an older `SKILL.md`, this design wins for generation.
+
+## Source Authority And Runtime Boundary
+
+Generation sources:
+
+- `generation/reference-builder.md` is the contract for generating and reviewing runtime references.
+- `generation/tooling-game-data-lookup.md` defines the low-context game-data lookup model.
+- `generation/indexer-game-data.md` defines generated game-data index artifacts.
+- `generation/searcher-game-data.md` defines the query script contract and bounded lookup behavior.
+- `generation/wiki-docs-indexing.md` defines wiki cache/indexing as generation-time source preparation.
+- `generation/refresh-reforger-sources.md` defines the generation-time refresh orchestration model.
+- Wiki cache/indexes and official samples may be used while generating references, but they are not runtime dependencies.
+
+Runtime skill sources:
+
+- The generated `SKILL.md` may use `references/`.
+- The generated `SKILL.md` may use `raw/game-data/`.
+- The generated `SKILL.md` may use `scripts/query-reforger-data.py`.
+- The generated `SKILL.md` may use `scripts/update-reforger-data.py` only to generate or refresh raw game data.
+
+Runtime skill prohibitions:
+
+- Do not route runtime Codex to `generation/`.
+- Do not route runtime Codex to wiki cache/index files.
+- Do not route runtime Codex to official samples as required source truth.
+- Do not route runtime Codex to `scripts/refresh-reforger-sources.py`.
+- Do not route runtime Codex to `scripts/index-reforger-data.py`.
+- Do not route runtime Codex to `scripts/update-reforger-wiki-docs.py`.
+- Do not route runtime Codex to `scripts/index-reforger-wiki-docs.py`.
+- Do not route runtime Codex to validation scripts or human search exports.
+
+The generated skill should be lean. It is a router, action loop, search guide, and verification contract for Codex. Detailed domain knowledge belongs in `references/`, and exact APIs belong in game-data query results.
+
+## Future `SKILL.md` Contract
+
+The future `SKILL.md` must be written for Codex, not a human reader. It must be read in full when the skill triggers.
+
+Mandatory behavior:
+
+- Read every relevant runtime reference in full before non-trivial Reforger work.
+- Read multiple references when a task crosses systems.
+- Do not search references instead of reading them.
+- Use real Reforger APIs from game-data search; never guess API names, signatures, attributes, inheritance, or lifecycle methods.
+- Verify every meaningful Reforger API call emitted in generated code, including helper calls, not only the main task API.
+- Use the search commands in references as starting points, then search for closer task-specific context when needed.
+- Find, open, and read relevant source examples before writing API-sensitive code.
+- Use source snippets and examples to infer idiomatic usage patterns.
+- Prefer direct source-backed APIs and idioms over composing generic calls, unless the generic composition is also source-backed and justified.
+- Treat examples as guides, not law.
+- Prefer the smallest correct change that preserves current behavior.
+- Keep local work local.
+- Do not introduce managers, services, registries, wrappers, broad validation, or extra settings unless the request or demonstrated defect requires them.
+- Break complex or cross-system work into small verified slices.
+- Reread `SKILL.md` when the task becomes complex, crosses systems, or Codex is unsure whether the rules are being followed.
+- Self-audit before edits, between slices, and before the final response.
+- Do not modify the skill, references, or skill tooling unless the user explicitly asks and confirms that change.
+
+Required `SKILL.md` sections:
+
+- Frontmatter with only `name` and `description`.
+- A concise action loop: route, read references, query APIs, inspect examples/snippets, implement, verify.
+- A piecemeal work strategy for complex tasks.
+- A routing table for every runtime reference.
+- A search guide for `scripts/query-reforger-data.py`.
+- Game-data generation instructions for missing or stale `raw/game-data`.
+- Verification guidance for Workbench, runtime, multiplayer, dedicated server, packaging, editor, and asset validation when relevant.
+
+The action loop must require slice-level verification. For each slice, Codex should route to the smallest reference set, read those references in full, query exact APIs, inspect source examples/snippets, implement only that slice, verify it, then reassess before continuing. The skill should explicitly require Codex to ask whether it is following `SKILL.md`, whether references were read, whether every emitted API and helper-call idiom was verified, and whether the change is still the smallest correct local change.
+
+## Piecemeal Runtime Strategy Requirement
+
+The generated `SKILL.md` must make piecemeal work a first-class runtime behavior, not just a general preference.
+
+Required behavior:
+
+- For any complex, multi-file, cross-system, or uncertain task, Codex must break the work into the smallest useful slices.
+- Before each slice, Codex must stop and think: am I being useful, am I following `SKILL.md`, have I read the right references, have I searched real APIs, and am I following the skill's best practices?
+- During each slice, Codex must keep scope local and implement only the current verified change.
+- After each slice, Codex must verify what can be verified, state what remains unverified, and reassess whether another slice is still needed.
+- For generated code, Codex must verify the actual code body, including helper APIs, formatting/logging/resource/UI/component calls, and common idioms.
+- If the answer to any self-check is weak or uncertain, Codex must reread `SKILL.md`, reroute to the right references, and search closer game-data context before continuing.
+- The generated skill should use strict `MUST` language for this behavior while staying compact.
+
+## Reference Routing Table Requirements
+
+The future `SKILL.md` must include a routing table that covers every current runtime reference. Each route should name when to read that reference and likely adjacent references for cross-domain tasks.
+
+Required reference routes:
+
+| Reference | Primary Use |
+| --- | --- |
+| `references/start-here-source-authority.md` | Source hierarchy, runtime boundaries, lookup-first behavior, general orientation. |
+| `references/mod-projects-addons-workshop.md` | Addon/project setup, `.gproj`, local mod layout, publishing, Workshop, packaging checks. |
+| `references/enfusion-language-and-script-editor.md` | Enforce/Enfusion syntax, language rules, values/operators/keywords, Script Editor usage. |
+| `references/script-events-actions-and-patterns.md` | Gameplay scripting patterns, script structure, events/invokers, user actions, logging patterns. |
+| `references/api-lookup-and-common-symbols.md` | API lookup behavior, common symbol routes, search command patterns. |
+| `references/resource-manager-file-types-and-editors.md` | Resource Manager surfaces, file types, editor tools, Resource Manager plugins. |
+| `references/prefabs-configs-containers-and-catalogs.md` | Prefab/config/resource data modeling, BaseContainer, ResourceName, catalogs. |
+| `references/entities-components-and-lifecycle.md` | Entity/component lifecycle, event masks, activeness, component wiring, action contexts. |
+| `references/multiplayer-replication-and-authority.md` | Authority/proxy/owner, replication, RPC, RplProp/RplRpc, JIP, dedicated-server verification. |
+| `references/server-hosting-startup-and-runtime.md` | Server config, startup parameters, hosting, management, RCON/A2S, runtime validation. |
+| `references/workbench-plugins-and-editor-tools.md` | Workbench plugin authoring and editor extension surfaces. |
+| `references/diagnostics-testing-and-performance.md` | Diag Menu, autotests, profiling, FPS diagnostics, performance validation. |
+| `references/scenario-framework.md` | Scenario Framework hierarchy, setup, components, activation/conditions/actions, debugging. |
+| `references/game-master-factions-tasks-and-modes.md` | Game Master, factions, tasks, game modes, Conflict, Capture & Hold, notifications, hints. |
+| `references/terrain-creation-and-world-setup.md` | Terrain foundation, world setup, heightmaps, terrain entity, environment baseline, 2D maps. |
+| `references/world-editor-tools-generators-and-navmesh.md` | World Editor tools, generators, shape/vector tools, navmesh workflows. |
+| `references/asset-import-models-materials-and-props.md` | Asset import, FBX/model pipeline, Blender tools, materials/textures, props, LOD, collision, particles. |
+| `references/weapons-prefabs-attachments-and-firearms.md` | Weapon creation, weapon prefab/config setup, attachments, optics, suppressors, magazines/ammo routes. |
+| `references/character-gear-inventory-and-arsenal.md` | Character gear, headgear, vests, inventory, protection, arsenal exposure. |
+| `references/vehicles-creation-simulation-and-compartments.md` | Vehicle creation, simulation, compartments, seats, controllers, damage/fuel/turrets. |
+| `references/animation-graphs-weapon-animation-and-export.md` | Animation Editor, graphs/nodes, state machines, procedural animation, export profiles, weapon animation. |
+| `references/audio-editor-signals-and-sound-systems.md` | Audio Editor, signals, DSP nodes, sound events/components, music, occlusion, radio, VoN audio side. |
+| `references/ui-layouts-dialogs-and-menus.md` | UI layouts, dialogs, widgets, tooltips, HUD/menu routes, layout-to-script workflows. |
+| `references/ai-behavior-commanding-and-debug.md` | Behavior Editor, AI nodes, AI debug, commanding behavior, AI validation. |
+| `references/examples-and-sample-patterns.md` | Example routing, official sample intent, game-source example query routes. |
+| `references/common-task-recipes.md` | Compact task recipes that route to one primary reference plus query commands. |
+
+The routing table must not replace reading. When a task matches a reference, Codex must read the relevant reference in full before acting.
+
+## Search And API Lookup Model
+
+The future `SKILL.md` must make `scripts/query-reforger-data.py` the normal API lookup path.
+
+Supported query commands to document:
+
+- `lookup "<task phrase>"` for bounded task-oriented bundles.
+- `symbol <name>` for classes, enums, functions, methods, properties, and common symbols.
+- `method [owner] <name>` for method/function signatures.
+- `attribute <name>` for attributes such as replication and editor metadata.
+- `inherits <class>` for base/derived relationships.
+- `examples <topic>` for implementation-pattern routes.
+- `files <query>` for source discovery by symbol, topic, module, or path text.
+- `snippet <file> --line <n> --context <n>` for bounded source context.
+
+Search rules for the generated skill:
+
+- Query before writing API-sensitive code.
+- Treat exact API verification as covering every meaningful emitted API call, including helper calls inside generated code.
+- Use exact searches when the symbol or method is known.
+- Prefer generated game-data records for API signatures.
+- Prefer handwritten game-source records for examples and implementation patterns.
+- Prefer source-backed idioms from snippets/examples over composing generic calls unless the composition is also source-backed.
+- Use `files` to discover closer source context when a broad `lookup` or `examples` result is too generic.
+- Use `snippet` only after selecting an exact file and line.
+- Do not load broad API dumps into context.
+- Do not assume examples are current API truth; verify symbols and methods separately.
+- If `lookup` is unmatched or ambiguous, refine with `symbol`, `method`, `attribute`, `inherits`, `examples`, and `files` rather than forcing an unrelated recipe.
+
+Runtime examples may include commands like:
 
 ```powershell
-py -3 scripts\build-reforger-extended-api-reference.py
+py -3 scripts\query-reforger-data.py lookup "make a replicated component" --limit 8
+py -3 scripts\query-reforger-data.py symbol ScriptComponent --kind class --exact
+py -3 scripts\query-reforger-data.py method IEntity FindComponent --exact
+py -3 scripts\query-reforger-data.py attribute RplProp --exact
+py -3 scripts\query-reforger-data.py examples replication --limit 8
+py -3 scripts\query-reforger-data.py files SCR_ScenarioFrameworkTask --limit 8
+py -3 scripts\query-reforger-data.py snippet scripts/Game/Some/File.c --line 120 --context 30
 ```
 
-Then inspect audit output for markdown hygiene. If generated comments create malformed tables, TODO artifacts, mojibake, or other search-hostile output, prefer fixing the checked-in builder in a separate explicit edit. Do not hand-maintain large generated sections unless the user asks for a temporary local cleanup.
+The command examples are examples only. Codex should search for closer names, topics, files, and snippets based on the actual task.
 
-### Phase 6: Forward Tests
+## Game Data Update Resources
 
-Before writing `SKILL.md`, run or simulate small coding-focused forward tests using the references.
+Generation-side tooling may use the full source refresh model documented in `generation/refresh-reforger-sources.md`, the game-data indexer design, the searcher design, and wiki indexing docs.
 
-Required test prompts:
-
-1. Add a minimal `ScriptComponent` and matching `ScriptComponentClass` with one editable prefab/resource field and a guarded `EOnInit` debug print.
-2. Add a component method that moves its owner entity to a supplied vector, verifying exact `IEntity` transform/origin APIs before writing code.
-3. Add a user-action script patterned after official sample user actions, with uncertain APIs clearly marked.
-4. Add a small replicated/RPC component skeleton that separates authority-side state changes from client-side calls and marks RPC attribute/signature uncertainty.
-5. Add a Workbench plugin command skeleton using documented Workbench plugin attribute shape and editor-only API checks.
-6. Add a config/prefab reference field example using `ResourceName` and explain whether the task is script-first, data-first, editor-first, or mixed.
-
-Record results in `generation/review.md`.
-
-Forward tests pass only if they:
-
-- Route to the right references.
-- Check `api-main.md` or `api-extended.md` for exact APIs.
-- Label uncertainty instead of inventing signatures.
-- Produce reviewable code/config.
-- Avoid local raw paths in runtime output.
-
-### Phase 7: `SKILL.md`
-
-Write `SKILL.md` last.
-
-It must be compact and act as a router and guardrail.
-
-Frontmatter must contain only:
-
-```yaml
----
-name: reforger
-description: ...
----
-```
-
-The body must include:
-
-- Task routing to every runtime reference.
-- API verification rule.
-- Source authority rule.
-- Reminder that many Reforger tasks are data-first, editor-first, server-first, asset-first, or mixed rather than script-only.
-- Reminder to state residual Workbench/runtime/server verification needs.
-
-Do not include:
-
-- Raw paths.
-- Provenance tables.
-- Long examples.
-- Topic detail that belongs in references.
-- Generation or audit process detail.
-
-### Phase 8: `generation/review.md`
-
-Write `generation/review.md` last.
-
-It must include:
-
-- Status: `COMPLETE`, `INCOMPLETE`, or `STRUCTURALLY VALID BUT DESIGN-INCOMPLETE`.
-- Whether raw data was refreshed.
-- Source inventory summary.
-- References written.
-- Exact raw provenance per reference.
-- API curation notes.
-- Forward-test results.
-- Validation results.
-- Known gaps and manual review items.
-
-Use `INCOMPLETE` if references are missing or not reviewed.
-
-Use `STRUCTURALLY VALID BUT DESIGN-INCOMPLETE` if files exist and basic validation passes but quality, provenance, source coverage, or forward tests are not complete.
-
-Use `STRUCTURALLY VALID BUT DESIGN-INCOMPLETE` if any topical reference is substantially below the audit useful-detail range without a source-backed sparse-topic justification.
-
-Use `COMPLETE` only when the runtime skill is useful and all phases passed.
-
-## Required References
-
-### `overview.md`
-
-Purpose: route ambiguous Reforger work.
-
-Cover:
-
-- Script-first, data-first, editor-first, server-first, asset-first, and mixed task routing.
-- Docs as rules, samples as examples, API data as signature truth.
-- Why many tasks require Workbench resources, prefabs, configs, worlds, layouts, or packaging.
-- Verification loop: topical reference, API lookup, project search, residual runtime/Workbench uncertainty.
-- Highest-risk areas: lifecycle, replication, resources/prefabs/configs, Workbench tooling, packaging.
-
-### `scripting-core.md`
-
-Purpose: primary Enfusion Script workflow reference.
-
-Cover:
-
-- Script module/folder placement.
-- Creator tag and class/file naming.
-- Modded class layout, override verification, and `super`.
-- `Print`, `PrintFormat`, log levels, Remote Console, noisy-log traps.
-- `ScriptInvoker` accessor and subscription patterns.
-- Event/callback registration and alternatives to polling.
-- Performance and profiling workflow.
-- Examples for minimal class, modded override, debug/invoker/event pattern.
-
-### `scripting-language.md`
-
-Purpose: Enfusion language mechanics.
-
-Cover:
-
-- Syntax, classes, methods, constructors/destructors, inheritance, overrides.
-- Primitive values, vectors, arrays, maps/sets where supported, constants, enums.
-- Automatic reference counting, `ref`, object lifetime, native/managed traps.
-- Attributes and annotations for serialized/editor fields.
-- Config objects, `BaseContainer`, defaults, failure handling.
-- JSON usage when source-supported.
-- Preprocessor and macro risks.
-- Examples for types, control flow, classes, `ref`, attributes, config/JSON.
-
-### `entity-component-lifecycle.md`
-
-Purpose: entity and component coding.
-
-Cover:
-
-- `ScriptComponentClass`/`ScriptComponent` pairing.
-- `ComponentEditorProps` and editable `[Attribute]` fields.
-- `EOnInit`, `OnPostInit`, delete, activation/deactivation, parent-child callbacks where source-supported.
-- Event masks and update callbacks.
-- Owner guards, `GetOwner`, component lookup/cast guards.
-- `IEntity` origin/transform APIs and local-vs-world distinction.
-- Prefab integration, serialized field stability, activeness, Workbench preview traps.
-- Component skeleton, editable field, guarded init, movement/teleport examples.
-
-### `networking-multiplayer-replication.md`
-
-Purpose: multiplayer-safe scripting.
-
-Cover:
-
-- Authority/master, proxy, owner, owner proxy, remote proxy.
-- Authority-side mutation and proxy/client presentation.
-- `BaseRplComponent` lookup and role/ownership APIs.
-- `RplProp` state replication, update/bump/notify uncertainty, initial-state concerns.
-- `RplRpc` purpose, signature/attribute verification, direction/target/reliability uncertainty.
-- Spawn/despawn/movement authority rules.
-- User action routing when gameplay state changes.
-- Authority example, replicated property skeleton, RPC skeleton or no-example rationale, anti-example.
-
-### `resources-prefabs-configs.md`
-
-Purpose: resources, prefabs, configs, UI/layout resources, and editor data.
-
-Cover:
-
-- Data-first versus script-first decision rules.
-- `ResourceName`, picker attributes, empty-value guards, `Resource.Load`.
-- Prefab inheritance, overrides, component wiring, serialized-field stability.
-- Config class/object workflow, `BaseContainer`, defaults, failure handling.
-- Entity catalogs, arsenal, faction/scenario consumers, editable prefab implications.
-- Layout/widget resources versus widget scripts.
-- Prefab/resource spawn workflow with API verification and authority caveats.
-- Examples for config snippet, `ResourceName` field, resource load, catalog/prefab layout, UI/layout.
-
-### `workbench-tools-debugging.md`
-
-Purpose: Workbench, editor tooling, diagnostics, and profiling.
-
-Cover:
-
-- Workbench/editor module separation from runtime modules.
-- `WorkbenchPlugin`, `WorkbenchPluginAttribute`, `Run`, `RunCommandline`, context-menu hooks where supported.
-- Resource Manager, Script Editor, World Editor, String Editor or other module APIs.
-- Selection handling and empty-selection guards.
-- Diag Menu, Script Editor, Remote Console, logs.
-- Script profiling and performance workflow.
-- Resource registration/rebuild and destructive-action safeguards.
-- Workbench plugin skeleton and diagnostic/profiling example.
-
-### `scenario-framework-game-master.md`
-
-Purpose: Scenario Framework, Game Master, tasks, factions, and game mode content.
-
-Cover:
-
-- Scenario/Game Master/faction work as data-first unless script integration is required.
-- Faction configs, groups, characters, gear, identities, Conflict/Game Master integration.
-- Entity catalogs, editable/placeable prefabs, performance/replication implications.
-- Task system workflow, ownership, completion, cleanup, script integration cautions.
-- Scenario layers, game mode setup, world/config dependencies.
-- Game Master editable prefab setup and Workbench/plugin steps.
-- Faction config layout, entity catalog layout, scenario/Game Master checklist, task example or no-example rationale.
-
-### `terrain-world-editor.md`
-
-Purpose: terrain creation, world editing, generators, navmesh, roads, rivers, and map tooling.
-
-Cover:
-
-- New world/base scene setup and world resource layout.
-- Terrain entity/origin, sculpting, materials/layers, collision implications.
-- Navmesh generation/rebuild and AI validation.
-- Road, river, lake, and water workflows.
-- Forest/object/shape/generator tools and performance risks.
-- 2D map tooling and generated/exported data.
-- World Editor tool/API boundaries and editor-only automation caveats.
-- World layout, terrain setup, navmesh, road/river/generator checklists.
-
-### `assets-weapons-vehicles-animation-audio.md`
-
-Purpose: asset workflows that affect code and mod integration.
-
-Cover:
-
-- Asset preparation, import, resource processing, prefab/config setup.
-- FBX/model, texture/material, LOD/collision/performance workflow.
-- Weapon prefab/config surfaces: muzzle, magazine, attachments, effects, animation, audio, user actions.
-- Vehicle prefab/config surfaces: simulation, damage, fuel, seats, actions, physics, controller components.
-- Character gear, attachment points, inventory/arsenal/faction integration.
-- Animation editor, graph variables, controllers, authored resources, script touchpoints.
-- Audio editor, sound events, signals, variables, occlusion, runtime trigger paths.
-- Examples for weapon, vehicle, gear, animation, audio layouts or explicit no-example rationale.
-
-### `server-runtime-packaging.md`
-
-Purpose: runtime, startup, server hosting/config, Workshop, packaging, and deployment.
-
-Cover:
-
-- Startup parameters, branch/version assumptions, launch context.
-- Server config fields, secrets/logging safety, ports/network settings, dedicated-server behavior.
-- Addon dependencies, load order, `.gproj`, project metadata, packaging inclusion.
-- Workshop publishing, metadata, dependency warnings, visibility, backend/login caveats.
-- Dedicated server versus client/editor behavior and no local-player/UI assumptions.
-- Scenario/world/game mode startup configuration.
-- Static config checks, test-server launch when possible, logs, rollback.
-- Startup/config snippet, `.gproj` or addon layout example, packaging checklist.
-
-### `examples-patterns.md`
-
-Purpose: official sample mod map and reusable patterns.
-
-Cover:
-
-- Every official sample mod by name, purpose, and primary systems.
-- Common addon/project layouts: scripts, configs, prefabs, worlds, resources, project metadata.
-- Modded script, component/user-action, and Workbench plugin patterns with short excerpts where source-supported.
-- Config, prefab, entity catalog, arsenal, world, and faction layout patterns.
-- Weapon, vehicle, character, prop, replacement, animation, and cinematic sample patterns.
-- Cross-links from sample families to topical references.
-- Warnings that samples are examples and signatures/workflows still require docs/API verification.
-
-### `common-task-recipes.md`
-
-Purpose: fast path for common coding tasks.
-
-Cover recipes for:
-
-- Create `ScriptComponentClass` plus `ScriptComponent`.
-- Add editor props and attribute fields.
-- Print debug info safely.
-- Get entity origin or transform.
-- Move or teleport an entity.
-- Get local player or controlled entity with project-context warning.
-- Register frame/update/event masks safely.
-- Add or modify a user action.
-- Spawn an entity or prefab.
-- Load a resource or prefab.
-- Basic replicated or RPC action.
-- Create a Workbench plugin command.
-- State whether each recipe is script-first, data-first, editor-first, or mixed.
-
-Each recipe must have a direct example or explicit no-example rationale.
-
-### `api-main.md`
-
-Purpose: compact curated API reference for normal coding work.
-
-See Phase 4.
-
-### `api-extended.md`
-
-Purpose: exhaustive generated fallback from extracted API data.
-
-See Phase 5.
-
-## Validation
-
-Run after a full rebuild:
+The generated runtime `SKILL.md` must only include the game-data updater path needed to make `raw/game-data` available:
 
 ```powershell
-py -3 scripts\audit-references.py
-Select-String -Path SKILL.md,references\*.md -Pattern 'raw/|raw\\|Sources Used|Source files|Raw source'
-Select-String -Path references\*.md -Pattern 'Detail \d+:|Operational Detail Retention|Expanded Source-Grounded Review Notes|Example Marker|Audit Marker|Coverage Marker'
-Select-String -Path references\*.md -Pattern '\[image omitted\]|Official Wiki Sources|High-Signal Doc Notes|Official Sample Sources|Relevant APIs|Headings:|TODO:'
-Select-String -Path references\api-main.md -Pattern 'IEntity|ScriptComponent|ResourceName|RplRpc|WorkbenchPlugin'
-Select-String -Path SKILL.md -Pattern 'common-task-recipes.md'
+py -3 scripts\update-reforger-data.py --if-needed
 ```
 
-Passing commands are not enough. Manual usefulness review remains required.
+Runtime game-data update rules:
 
-## Completion Standard
+- Use `scripts/update-reforger-data.py --if-needed` when `raw/game-data` is missing or stale.
+- Use `scripts/update-reforger-data.py --check` only to check remote status without fetching or writing.
+- Do not instruct runtime Codex to run the game-data indexer directly.
+- Do not instruct runtime Codex to run wiki or sample update scripts.
+- Do not instruct runtime Codex to run the refresh orchestrator.
 
-Mark the rebuild `COMPLETE` only when:
+`scripts/update-reforger-data.py` owns only raw game data: checking remote commit, pulling sparse `scripts/` from BohemiaInteractive's script diff repository, writing `raw/game-data/manifest.json`, and cleaning repository metadata from `raw/game-data`.
 
-- All runtime references are source-grounded, useful, and non-repetitive.
-- `api-main.md` contains curated common signatures near the top.
-- `api-extended.md` is generated from the checked-in script.
-- Forward tests pass or are explicitly waived by the user.
-- `SKILL.md` is written last and routes to every runtime reference.
-- `generation/review.md` records exact raw provenance and honest status.
-- Runtime files contain no local raw paths.
-- No output relies on repeated filler or audit-only prose.
+## Reference Generation Workflow
 
-Otherwise mark the rebuild `INCOMPLETE` or `STRUCTURALLY VALID BUT DESIGN-INCOMPLETE`.
+When creating or revising any runtime reference:
+
+1. Read `generation/reference-builder.md` first.
+2. Review relevant wiki index records and structured wiki data.
+3. Query exact game APIs and source examples through the game-data search tooling.
+4. Review official samples only as generation-time layout/example signals.
+5. Generate one reference at a time.
+6. Include the required standard headings from the reference builder.
+7. Preserve wiki workflow detail, warnings, tables, fields, procedures, and official links.
+8. Route exact APIs to query commands instead of embedding API dumps.
+9. Score the reference with the builder rubric.
+10. Revise until it reaches the required score and has no automatic failure.
+
+Runtime references should be dense and useful for Codex, but they must not contain raw wiki dumps, raw HTML, local absolute paths, broad API dumps, or copied source bodies.
+
+## Do Not Leak To `SKILL.md`
+
+The following are design/generation-only details and must not appear in the generated runtime `SKILL.md`:
+
+- `generation/` paths.
+- Wiki scraping instructions.
+- Wiki cache/index file paths.
+- Sample update or sample inspection requirements.
+- Reference-builder scoring rubric.
+- Human search exports.
+- Search quality validators.
+- Refresh orchestration.
+- Indexer implementation details.
+- Instructions to use `scripts/index-reforger-data.py`.
+- Instructions to use `scripts/update-reforger-wiki-docs.py`.
+- Instructions to use `scripts/index-reforger-wiki-docs.py`.
+- Instructions to use `scripts/update-reforger-samples.ps1`.
+
+The generated `SKILL.md` can say references were curated from source material, but it must not ask runtime Codex to inspect the generation pipeline.
+
+## Future `SKILL.md` Generation Checklist
+
+Before accepting a generated `SKILL.md`, verify:
+
+- It has only `name` and `description` frontmatter fields.
+- It is concise enough to serve as a router and action loop.
+- It includes every runtime reference in the routing table.
+- It requires reading relevant references in full.
+- It requires game-data search before API-sensitive work.
+- It requires verification of all meaningful emitted APIs, including helper calls.
+- It requires source-backed idioms and does not treat task-level API verification as sufficient for generated code correctness.
+- It requires piecemeal task decomposition for complex or cross-system tasks.
+- It requires self-audit checkpoints before edits, between slices, and before final response.
+- It requires rereading `SKILL.md` when complexity or uncertainty increases.
+- It explains `query-reforger-data.py` commands at a practical level.
+- It includes raw game-data update instructions using `py -3 scripts\update-reforger-data.py --if-needed`.
+- It does not mention `generation/`, wiki cache/indexes, samples, refresh scripts, indexer scripts, validators, or human logs.
+- It states examples are guides, not law.
+- It states search commands are starting points, not exhaustive answers.
+- It states Codex must inspect closer relevant examples and snippets when needed.
+- It includes the smallest-correct-change and local-work-local guardrails.
+- It says not to modify the skill unless explicitly asked and confirmed.
+
+## Validation For This Design
+
+This design is correct when:
+
+- `generation/design.md` exists and is the only changed file for this step.
+- `SKILL.md` is untouched.
+- No file under `references/` is changed.
+- The current runtime reference list is represented in the routing requirements.
+- Runtime allowed sources are limited to `references/`, `raw/game-data/`, `scripts/query-reforger-data.py`, and `scripts/update-reforger-data.py`.
+- Runtime forbidden sources include `generation/`, wiki docs/cache/indexes, samples, refresh scripts, indexers, validators, and human logs.
+- Game-data update instructions use the actual updater interface.

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Crawl Arma Reforger BIKI docs through Chrome and build a local doc schema."""
+"""Crawl Arma Reforger BIKI docs into a generation-only raw cache.
+
+The output under raw/wiki-docs is source material for reference generation.
+Runtime references and future SKILL.md files must not depend on this cache.
+"""
 
 from __future__ import annotations
 
@@ -18,6 +22,8 @@ from urllib.parse import unquote, urldefrag, urljoin, urlparse
 
 
 START_URL = "https://community.bistudio.com/wiki/Category:Arma_Reforger/Modding"
+WIKI_UPDATER_VERSION = 1
+OUTPUT_CONTRACT = "raw-wiki-cache-v1"
 REQUIREMENTS = ["selenium>=4.45.0", "beautifulsoup4>=4.12.0", "markdownify>=0.12.0"]
 EXCLUDED_PATHS = {
     "/wiki/Arma_Reforger:Known_Issues",
@@ -323,7 +329,9 @@ def write_router(path: Path, records: list[dict]) -> None:
     lines = [
         "# Arma Reforger Wiki Docs Router",
         "",
-        "Use this file to choose which local wiki document to inspect.",
+        "Generation-only raw wiki cache router. Do not ship this file as a runtime reference, and do not route future Codex runs to depend on `raw/wiki-docs`.",
+        "",
+        "Use this file only while indexing the local wiki cache for later generation workflows.",
         "",
         "## Categories",
     ]
@@ -469,6 +477,12 @@ def main() -> int:
 
         schema = {
             "generatedAt": now_iso(),
+            "tool": {
+                "name": "update-reforger-wiki-docs.py",
+                "version": WIKI_UPDATER_VERSION,
+                "contract": OUTPUT_CONTRACT,
+            },
+            "runtimeUse": "generation-only",
             "startUrl": args.start_url,
             "boundary": {
                 "allowedPathPrefixes": [
@@ -487,12 +501,32 @@ def main() -> int:
             "skipped": skipped_urls,
         }
         (stage_root / "schema.json").write_text(json.dumps(schema, indent=2, ensure_ascii=False), encoding="utf-8")
+        manifest = {
+            "generatedAt": schema["generatedAt"],
+            "tool": schema["tool"],
+            "runtimeUse": "generation-only",
+            "source": {
+                "startUrl": args.start_url,
+                "allowedPathPrefixes": schema["boundary"]["allowedPathPrefixes"],
+                "excludedPaths": sorted(EXCLUDED_PATHS),
+            },
+            "counts": schema["counts"],
+            "outputs": {
+                "schema": "schema.json",
+                "router": "router.md",
+                "htmlDir": "html",
+                "markdownDir": "markdown",
+                "pagesDir": "pages",
+            },
+        }
+        (stage_root / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
         write_router(stage_root / "router.md", records)
 
         if out_root.exists():
             shutil.rmtree(out_root)
         stage_root.rename(out_root)
         print(f"[wiki-docs] wrote {out_root / 'schema.json'}")
+        print(f"[wiki-docs] wrote {out_root / 'manifest.json'}")
         print(f"[wiki-docs] wrote {out_root / 'router.md'}")
     finally:
         if args.keep_browser_open:
