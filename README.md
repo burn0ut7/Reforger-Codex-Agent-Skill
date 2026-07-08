@@ -42,6 +42,11 @@ This skill keeps Codex focused on Reforger by using:
 
 Place this skill folder in your Codex skills directory.
 
+Requirements:
+
+- Codex with skills enabled.
+- Python 3 available as `py -3` on Windows for the included helper scripts.
+
 On Windows, a typical path is:
 
 ```text
@@ -80,7 +85,7 @@ Codex should read the skill, open the relevant references, search game data for 
 
 ## Updating Game Data
 
-Most users can use the skill as-is. If the local Reforger game data is missing or stale, refresh only the raw game data with:
+Most users can use the skill as-is. If the local Reforger game data is missing or stale, refresh only the raw game data with Python:
 
 ```powershell
 py -3 scripts\update-reforger-data.py --if-needed
