@@ -91,11 +91,15 @@ The intended regeneration flow is:
 Useful commands for raw data refresh:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\update-reforger-data.ps1
+py -3 .\scripts\update-reforger-data.py --check
+py -3 .\scripts\update-reforger-data.py --if-needed
+py -3 .\scripts\update-reforger-data.py
 py -3 .\scripts\update-reforger-wiki-docs.py
 powershell -ExecutionPolicy Bypass -File .\scripts\update-reforger-samples.ps1
 py -3 .\scripts\build-reforger-extended-api-reference.py
 ```
+
+`--check` is non-mutating and reports whether remote game data changed. `--if-needed` skips refresh when the local game data already matches the upstream commit.
 
 `generation/design.md` contains the full generation rules. `generation/review.md` is overwritten on each full generation run and summarizes what was created, refreshed, skipped, or needs review.
 
