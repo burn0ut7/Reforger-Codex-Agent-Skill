@@ -29,13 +29,25 @@ This is the scraper. Keep it focused on fetching official wiki data into `raw/wi
 Expected outputs:
 
 - `raw/wiki-docs/html/*.html`
-- `raw/wiki-docs/markdown/*.md`
+- `raw/wiki-docs/markdown/**/*.md`, arranged under the deepest official wiki category available (uncategorized pages remain at the Markdown root)
 - `raw/wiki-docs/pages/*.json`
 - `raw/wiki-docs/schema.json`
 - `raw/wiki-docs/manifest.json`
-- `raw/wiki-docs/router.md`
+- `raw/wiki-docs/markdown/wiki-index.md`
 
 The raw cache is generation input only. End users and future runtime Codex runs should not be expected to run this script.
+
+Each cached Markdown file starts with a level-one heading containing the page title as a link to its official wiki URL. The repeated `Arma Reforger` product namespace is removed from that display title and filename because the cache already scopes the corpus to Arma Reforger.
+
+`markdown/wiki-index.md` is the local Markdown index: it lists every saved document by title, links each title to its local Markdown path, includes a separate official-source link, and records searchable title/category/heading phrases as `keywords` for MCP and Codex routing.
+
+To rebuild this Markdown structure from an existing cache without opening Chrome or requesting any wiki pages, run:
+
+```powershell
+py -3 scripts\update-reforger-wiki-docs.py --rebuild-markdown
+```
+
+This mode replaces only `raw/wiki-docs/markdown/`, updates the cache records' Markdown paths and title metadata, and rebuilds `markdown/wiki-index.md`.
 
 ### `scripts/index-reforger-wiki-docs.py`
 

@@ -282,6 +282,12 @@ def page_family(page: dict) -> str:
 
 
 def category_path(page: dict) -> list[str]:
+    # The scraper records the actual MediaWiki category memberships for pages,
+    # which is more useful than inferring a hierarchy from a page's own URL.
+    recorded_paths = page.get("categoryPaths") or []
+    if recorded_paths:
+        return list(recorded_paths[0])
+
     url = page.get("_canonicalUrl") or page.get("url") or ""
     path = unquote(urlparse(url).path)
     if "/Category:" not in path:

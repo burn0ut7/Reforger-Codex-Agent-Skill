@@ -22,7 +22,7 @@ from urllib.parse import unquote, urldefrag, urljoin, urlparse
 
 
 START_URL = "https://community.bistudio.com/wiki/Category:Arma_Reforger/Modding"
-WIKI_UPDATER_VERSION = 1
+WIKI_UPDATER_VERSION = 2
 OUTPUT_CONTRACT = "raw-wiki-cache-v1"
 REQUIREMENTS = ["selenium>=4.45.0", "beautifulsoup4>=4.12.0", "markdownify>=0.12.0"]
 EXCLUDED_PATHS = {
@@ -60,6 +60,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--manual-first", action="store_true", help="Pause after first page for manual verification.")
     parser.add_argument("--no-manual-security", action="store_true", help="Do not pause for manual security verification.")
     parser.add_argument("--keep-browser-open", action="store_true")
+    parser.add_argument(
+        "--rebuild-markdown",
+        action="store_true",
+        help="Rebuild Markdown files and markdown/wiki-index.md from raw/wiki-docs without opening Chrome or fetching wiki pages.",
+    )
     parser.add_argument("--settle-seconds", type=float, default=0.25, help="Extra wait after wiki content appears.")
     parser.add_argument("--page-timeout", type=float, default=30.0, help="Seconds before a page load is considered stuck.")
     parser.add_argument("--ready-timeout", type=float, default=30.0, help="Seconds to wait for wiki content after navigation.")
@@ -86,6 +91,12 @@ def normalize_text(value: str) -> str:
         "â€˜": "'",
         "â€™": "'",
         "â€œ": '"',
+        "â€": '"',
+        "â€“": "-",
+        "â€”": "-",
+        "â€˜": "'",
+        "â€™": "'",
+        "â€œ": '"',
         "â€�": '"',
         "â€¦": "...",
         "â€Ž": "",
@@ -102,6 +113,90 @@ def safe_name(url: str) -> str:
     name = unquote(parsed.path.removeprefix("/wiki/").strip("/"))
     name = re.sub(r"[^A-Za-z0-9._-]+", "_", name)
     return name or "page"
+
+
+def safe_file_name(value: str) -> str:
+    """Return a readable Windows-safe Markdown filename."""
+    name = re.sub(r'[<>:"/\\|?*]+', " ", value)
+    name = re.sub(r"\s+", " ", name).strip(" .")
+    return name or "page"
+
+
+def document_title(title: str, fallback: str) -> str:
+    """Remove the wiki's product namespace from a document title.
+
+    The product is already implicit in this cache.  Repeating it in every
+    filename and Markdown H1 makes the corpus noisier without adding context.
+    """
+    title = normalize_text(title).strip() or fallback
+    title = re.sub(r"^Category:\s*Arma Reforger\s*/\s*", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"^Arma Reforger\s*[:/-]\s*", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"^Arma Reforger\s+[–-]\s+", "", title, flags=re.IGNORECASE)
+    title = re.sub(r"\s+[–-]\s+Arma Reforger\s+Category$", " Category", title, flags=re.IGNORECASE)
+    title = re.sub(r"\s+[–-]\s+Arma Reforger$", "", title, flags=re.IGNORECASE)
+    return title.strip() or fallback
+
+
+def category_path_from_url(url: str) -> list[str]:
+    """Map an official category URL to its useful, relative folder path."""
+    path = unquote(urlparse(url).path).lstrip("/")
+    marker = "wiki/Category:Arma_Reforger"
+    if not path.startswith(marker):
+        return []
+    suffix = path[len(marker):].strip("/")
+    return [safe_file_name(part.replace("_", " ")) for part in suffix.split("/") if part]
+
+
+def category_paths_from_soup(soup) -> list[list[str]]:
+    """Read the page's official category memberships from MediaWiki markup."""
+    paths: set[tuple[str, ...]] = set()
+    for link in soup.select("#mw-normal-catlinks a[href], #catlinks a[href]"):
+        category_path = category_path_from_url(link.get("href") or "")
+        if category_path:
+            paths.add(tuple(category_path))
+    return [list(path) for path in sorted(paths, key=lambda path: (-len(path), path))]
+
+
+def markdown_path_for_document(
+    markdown_root: Path,
+    title: str,
+    url: str,
+    kind: str,
+    category_paths: list[list[str]],
+    used_paths: dict[Path, str],
+) -> Path:
+    """Place a document below its deepest official category, without collisions."""
+    category_path = category_paths[0] if category_paths else []
+    if kind == "category":
+        own_path = category_path_from_url(url)
+        directory = markdown_root.joinpath(*own_path)
+        candidate = directory / "index.md"
+    else:
+        directory = markdown_root.joinpath(*category_path)
+        candidate = directory / f"{safe_file_name(title)}.md"
+
+    if candidate not in used_paths or used_paths[candidate] == url:
+        used_paths[candidate] = url
+        return candidate
+
+    # Same-title pages can exist in one category. Keep their readable title and
+    # add a stable URL-derived suffix rather than silently overwriting content.
+    candidate = candidate.with_name(f"{candidate.stem} -- {safe_name(url)}.md")
+    used_paths[candidate] = url
+    return candidate
+
+
+def normalize_document_heading_levels(markdown: str) -> str:
+    """Reserve H1 for the generated page title while preserving code blocks."""
+    lines = []
+    in_fence = False
+    for line in markdown.splitlines():
+        if line.strip().startswith("```"):
+            in_fence = not in_fence
+        elif not in_fence and re.match(r"^#(?!#)\s+", line):
+            line = f"#{line}"
+        lines.append(line)
+    return "\n".join(lines).strip()
 
 
 def normalize_url(base_url: str, href: str | None) -> str | None:
@@ -157,6 +252,148 @@ def clean_soup(soup) -> object:
     return soup
 
 
+def table_rows(table) -> list:
+    """Return rows owned by this table, excluding rows nested in detail tables."""
+    return [row for row in table.find_all("tr") if row.find_parent("table") == table]
+
+
+def append_asset_detail_lists(catalog, detail_cell, soup) -> bool:
+    """Flatten nested detail lists into labeled, searchable asset facts."""
+    detail_lists = [item for item in detail_cell.select("table ul") if not item.find_parent("ul")]
+    if not detail_lists:
+        return False
+    for detail_list in detail_lists:
+        for item in detail_list.find_all("li", recursive=False):
+            nested_list = item.find("ul", recursive=False)
+            label_parts = []
+            for child in item.contents:
+                if child == nested_list:
+                    continue
+                label_parts.append(child.get_text(" ", strip=True) if hasattr(child, "get_text") else str(child))
+            label = " ".join(part.strip() for part in label_parts if part.strip())
+            values = []
+            if nested_list:
+                values = [value.get_text(" ", strip=True) for value in nested_list.find_all("li", recursive=False)]
+
+            details = soup.new_tag("p")
+            if label:
+                strong = soup.new_tag("strong")
+                strong.string = label
+                details.append(strong)
+            if values:
+                details.append(" " if label else "")
+                details.append("; ".join(values))
+            catalog.append(details)
+    return True
+
+
+def unwrap_asset_catalog_tables(soup) -> None:
+    """Turn the wiki's nested asset catalog tables into readable asset records."""
+    for table in list(soup.select("table")):
+        rows = table_rows(table)
+        if len(rows) < 2:
+            continue
+        headers = [cell.get_text(" ", strip=True).casefold() for cell in rows[0].find_all("th", recursive=False)]
+        if headers != ["name", "prefab", "details"] or not table.select_one(".biki-spoiler"):
+            continue
+
+        catalog = soup.new_tag("div", attrs={"class": "wiki-asset-catalog"})
+        for row in rows[1:]:
+            cells = row.find_all("td", recursive=False)
+            if len(cells) != 3:
+                continue
+            heading = soup.new_tag("h4")
+            for child in list(cells[0].contents):
+                heading.append(child.extract())
+            catalog.append(heading)
+
+            prefab = soup.new_tag("p")
+            label = soup.new_tag("strong")
+            label.string = "Prefab:"
+            prefab.append(label)
+            prefab.append(" ")
+            for child in list(cells[1].contents):
+                prefab.append(child.extract())
+            catalog.append(prefab)
+
+            if not append_asset_detail_lists(catalog, cells[2], soup):
+                detail_text = cells[2].get_text(" ", strip=True).replace("Show details", "").strip()
+                if detail_text:
+                    details = soup.new_tag("p")
+                    details.string = detail_text
+                    catalog.append(details)
+        table.replace_with(catalog)
+
+
+def is_enforce_comparison_table(table) -> bool:
+    """Identify the wiki's two-column Don't/Do code comparison tables."""
+    rows = table.find_all("tr")
+    if len(rows) < 2:
+        return False
+    headers = [cell.get_text(" ", strip=True).casefold() for cell in rows[0].find_all("th", recursive=False)]
+    if headers != ["don't", "do"]:
+        return False
+    return any(row.select_one(".enforcescripthighlighter-block") for row in rows[1:])
+
+
+def unwrap_enforce_comparison_tables(soup) -> None:
+    """Turn comparison tables into sequential Markdown-friendly sections."""
+    for table in list(soup.select("table")):
+        if not is_enforce_comparison_table(table):
+            continue
+        rows = table.find_all("tr")
+        labels = [cell.get_text(" ", strip=True) for cell in rows[0].find_all("th", recursive=False)]
+        container = soup.new_tag("div", attrs={"class": "wiki-enforce-comparison"})
+        for row in rows[1:]:
+            cells = row.find_all("td", recursive=False)
+            if len(cells) != 2:
+                continue
+            for label, cell in zip(labels, cells):
+                heading = soup.new_tag("h3")
+                heading.string = label
+                container.append(heading)
+                for child in list(cell.contents):
+                    container.append(child.extract())
+        table.replace_with(container)
+
+
+def convert_enforce_highlighter_blocks(soup) -> None:
+    """Replace BIKI's span-based Enforce highlighter with real code blocks."""
+    for block in list(soup.select(".enforcescripthighlighter-block")):
+        scroller = block.select_one(".enforcescripthighlighter-scroller")
+        if not scroller:
+            continue
+        code = format_enforce_code(scroller.get_text().strip("\n"))
+        marker = soup.new_tag("p")
+        marker.string = "ENFORCECODEMARKER"
+        pre = soup.new_tag("pre")
+        code_tag = soup.new_tag("code")
+        code_tag.string = code
+        pre.append(code_tag)
+        block.replace_with(marker)
+        marker.insert_after(pre)
+
+
+def format_enforce_code(code: str) -> str:
+    """Restore readable indentation lost when Chromium serializes highlighted spans."""
+    lines = []
+    indent = 0
+    for raw_line in code.splitlines():
+        line = raw_line.strip()
+        if not line:
+            lines.append("")
+            continue
+        leading_closes = len(re.match(r"^}+", line).group(0)) if line.startswith("}") else 0
+        lines.append(f"{'\t' * max(0, indent - leading_closes)}{line}")
+        indent = max(0, indent + line.count("{") - line.count("}"))
+    return "\n".join(lines).strip()
+
+
+def mark_enforce_fences(markdown: str) -> str:
+    """Apply a language tag only to code fences originating from the wiki highlighter."""
+    return re.sub(r"ENFORCECODEMARKER\s*\n+```", "```enforce", markdown)
+
+
 def extract_document(html: str):
     from bs4 import BeautifulSoup
     from markdownify import markdownify
@@ -167,14 +404,19 @@ def extract_document(html: str):
     content = soup.select_one("#mw-content-text") or soup.select_one("main") or soup.body or soup
     title_tag = soup.select_one("#firstHeading") or soup.title
     title = title_tag.get_text(" ", strip=True) if title_tag else ""
+    unwrap_asset_catalog_tables(content)
+    unwrap_enforce_comparison_tables(content)
+    convert_enforce_highlighter_blocks(content)
     headings = [heading.get_text(" ", strip=True) for heading in content.find_all(re.compile("^h[1-6]$"))]
     text = content.get_text("\n", strip=True)
     markdown = markdownify(str(content), heading_style="ATX").strip()
+    markdown = mark_enforce_fences(markdown)
     title = normalize_text(title)
     headings = [normalize_text(heading) for heading in headings]
     text = normalize_text(text)
     markdown = normalize_text(markdown)
-    return title, headings, text, markdown, soup
+    markdown = normalize_document_heading_levels(markdown)
+    return title, headings, text, markdown, category_paths_from_soup(soup), soup
 
 
 def is_empty_wiki_page(text: str) -> bool:
@@ -327,27 +569,147 @@ def add_links_from_page(driver, queue: deque[str], queued: set[str], visited: se
 
 def write_router(path: Path, records: list[dict]) -> None:
     lines = [
-        "# Arma Reforger Wiki Docs Router",
+        "# Wiki Markdown Index",
         "",
-        "Generation-only raw wiki cache router. Do not ship this file as a runtime reference, and do not route future Codex runs to depend on `raw/wiki-docs`.",
+        "Generation-only raw wiki cache index. Each title links to its local Markdown file; the `wiki` link opens the official source page.",
         "",
-        "Use this file only while indexing the local wiki cache for later generation workflows.",
+        "For MCP/Codex search, use the exact category names, page titles, and heading phrases listed as keywords below. The linked Markdown file contains the full page content.",
+        "",
+        "Do not ship this file as a runtime reference, and do not route future Codex runs to depend on `raw/wiki-docs`.",
         "",
         "## Categories",
     ]
 
-    for record in records:
+    def local_link(record: dict) -> str:
+        title = record.get("displayTitle") or record["title"]
+        title = title.replace("\\", "\\\\").replace("[", "\\[").replace("]", "\\]")
+        markdown_path = Path(record["markdownPath"]).as_posix()
+        if markdown_path.startswith("markdown/"):
+            markdown_path = markdown_path.removeprefix("markdown/")
+        return f"[{title}](<{markdown_path}>)"
+
+    def search_terms(record: dict) -> str:
+        terms = [record.get("displayTitle") or record["title"]]
+        terms.extend(" > ".join(category) for category in record.get("categoryPaths") or [])
+        terms.extend(record.get("headings") or [])
+        unique_terms = []
+        seen = set()
+        for term in terms:
+            normalized = normalize_text(str(term)).strip()
+            key = normalized.casefold()
+            if normalized and key not in seen:
+                unique_terms.append(normalized)
+                seen.add(key)
+        return "; ".join(unique_terms)
+
+    for record in sorted(records, key=lambda item: (item["kind"], item.get("displayTitle") or item["title"])):
         if record["kind"] == "category":
-            lines.append(f"- {record['title']} - `{record['markdownPath']}` - {record['url']}")
+            lines.append(f"- {local_link(record)} ([wiki]({record['url']}))")
 
     lines.append("")
     lines.append("## All Documents")
-    for record in records:
-        headings = "; ".join(record["headings"][:5])
-        suffix = f" - headings: {headings}" if headings else ""
-        lines.append(f"- {record['title']} - `{record['markdownPath']}`{suffix}")
+    for record in sorted(records, key=lambda item: ((item.get("displayTitle") or item["title"]).casefold(), item["url"])):
+        lines.append(f"- {local_link(record)} ([wiki]({record['url']}))")
+        lines.append(f"  - keywords: {search_terms(record)}")
 
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def remove_generated_title(markdown: str) -> str:
+    """Make the Markdown-only rebuild mode idempotent."""
+    return re.sub(r"\A\s*#\s+\[[^\]]+\]\([^\n]+\)\s*\n{1,2}", "", markdown).strip()
+
+
+def rebuild_markdown_from_cache(cache_root: Path) -> int:
+    """Recreate Markdown output from cached source files without web access."""
+    schema_path = cache_root / "schema.json"
+    pages_root = cache_root / "pages"
+    if not schema_path.exists() or not pages_root.exists():
+        raise FileNotFoundError(
+            f"Missing cached wiki data under {cache_root}. Run a full scrape once before using --rebuild-markdown."
+        )
+
+    page_paths = sorted(pages_root.glob("*.json"))
+    if not page_paths:
+        raise FileNotFoundError(f"No cached page JSON files found under {pages_root}.")
+
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    markdown_root = cache_root / "markdown"
+    if markdown_root.exists():
+        shutil.rmtree(markdown_root)
+    markdown_root.mkdir(parents=True, exist_ok=True)
+
+    used_markdown_paths: dict[Path, str] = {}
+    records: list[dict] = []
+    for page_path in page_paths:
+        page_data = json.loads(page_path.read_text(encoding="utf-8"))
+        page_url = page_data.get("url") or ""
+        if not page_url:
+            raise ValueError(f"Cached page has no URL: {page_path}")
+
+        name = safe_name(page_url)
+        title = page_data.get("title") or name
+        display_title = document_title(title, name)
+        kind = page_data.get("kind") or page_kind(page_url)
+        html_relative_path = page_data.get("htmlPath") or f"html/{name}.html"
+        html_path = cache_root / html_relative_path
+        category_paths: list[list[str]] = []
+        source_markdown = page_data.get("markdown") or ""
+        source_headings = page_data.get("headings") or []
+        source_text = page_data.get("text") or ""
+        if html_path.exists():
+            _title, source_headings, source_text, source_markdown, category_paths, _soup = extract_document(
+                html_path.read_text(encoding="utf-8")
+            )
+
+        markdown_path = markdown_path_for_document(
+            markdown_root,
+            display_title,
+            page_url,
+            kind,
+            category_paths,
+            used_markdown_paths,
+        )
+        source_markdown = normalize_document_heading_levels(remove_generated_title(source_markdown))
+        markdown = f"# [{display_title}]({page_url})\n\n{source_markdown}".strip()
+        markdown_path.parent.mkdir(parents=True, exist_ok=True)
+        markdown_path.write_text(markdown + "\n", encoding="utf-8")
+
+        existing_headings = [heading for heading in source_headings if heading != display_title]
+        record = {
+            **{key: value for key, value in page_data.items() if key not in {"text", "markdown"}},
+            "title": title,
+            "displayTitle": display_title,
+            "url": page_url,
+            "kind": kind,
+            "headings": [display_title, *existing_headings],
+            "categoryPaths": category_paths,
+            "markdownPath": str(markdown_path.relative_to(cache_root)),
+            "htmlPath": html_relative_path,
+            "jsonPath": str(page_path.relative_to(cache_root)),
+        }
+        page_data.update(record)
+        page_data["text"] = source_text
+        page_data["textLength"] = len(source_text)
+        page_data["markdown"] = markdown
+        page_path.write_text(json.dumps(page_data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        records.append(record)
+
+    schema["documents"] = records
+    schema.setdefault("counts", {})["documents"] = len(records)
+    schema["markdownRebuiltAt"] = now_iso()
+    schema_path.write_text(json.dumps(schema, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+    manifest_path = cache_root / "manifest.json"
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["markdownRebuiltAt"] = schema["markdownRebuiltAt"]
+        manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    write_router(markdown_root / "wiki-index.md", records)
+    legacy_router = cache_root / "router.md"
+    if legacy_router.exists():
+        legacy_router.unlink()
+    return len(records)
 
 
 def main() -> int:
@@ -355,6 +717,15 @@ def main() -> int:
     ensure_requirements()
 
     root = Path(__file__).resolve().parents[1]
+    if args.rebuild_markdown:
+        try:
+            count = rebuild_markdown_from_cache(root / "raw" / "wiki-docs")
+        except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+            print(f"[wiki-docs] {exc}", file=sys.stderr)
+            return 2
+        print(f"[wiki-docs] rebuilt Markdown for {count} cached documents without scraping")
+        return 0
+
     out_root = root / "raw" / "wiki-docs"
     stage_root = root / "raw" / "wiki-docs.tmp"
     html_root = stage_root / "html"
@@ -377,6 +748,7 @@ def main() -> int:
     visited: set[str] = set()
     records: list[dict] = []
     skipped_urls: list[dict] = []
+    used_markdown_paths: dict[Path, str] = {}
 
     try:
         while queue:
@@ -425,7 +797,7 @@ def main() -> int:
                         wait_ready(driver, timeout=args.ready_timeout, settle_seconds=args.settle_seconds)
 
                     html = driver.page_source
-                    title, headings, text, markdown, _soup = extract_document(html)
+                    title, headings, text, markdown, category_paths, _soup = extract_document(html)
                     if is_security_page(driver):
                         raise RuntimeError("Chrome returned to the security verification page.")
                     if is_empty_wiki_page(text):
@@ -440,21 +812,35 @@ def main() -> int:
                     if not ready:
                         print("[wiki-docs] saving from partially loaded page content")
 
-                    name = safe_name(url)
+                    page_url = driver.current_url
+                    name = safe_name(page_url)
+                    display_title = document_title(title, name)
+                    kind = page_kind(page_url)
 
                     html_path = html_root / f"{name}.html"
-                    markdown_path = markdown_root / f"{name}.md"
                     json_path = json_root / f"{name}.json"
+                    markdown_path = markdown_path_for_document(
+                        markdown_root,
+                        display_title,
+                        page_url,
+                        kind,
+                        category_paths,
+                        used_markdown_paths,
+                    )
+                    markdown = f"# [{display_title}]({page_url})\n\n{markdown}".strip()
 
                     html_path.write_text(html, encoding="utf-8")
+                    markdown_path.parent.mkdir(parents=True, exist_ok=True)
                     markdown_path.write_text(markdown + "\n", encoding="utf-8")
 
                     added = add_links_from_page(driver, queue, queued, visited)
                     record = {
                         "title": title or name,
-                        "url": driver.current_url,
-                        "kind": page_kind(driver.current_url),
-                        "headings": headings,
+                        "displayTitle": display_title,
+                        "url": page_url,
+                        "kind": kind,
+                        "headings": [display_title, *headings],
+                        "categoryPaths": category_paths,
                         "textLength": len(text),
                         "markdownPath": str(markdown_path.relative_to(stage_root)),
                         "htmlPath": str(html_path.relative_to(stage_root)),
@@ -513,21 +899,21 @@ def main() -> int:
             "counts": schema["counts"],
             "outputs": {
                 "schema": "schema.json",
-                "router": "router.md",
+                "wikiIndex": "markdown/wiki-index.md",
                 "htmlDir": "html",
                 "markdownDir": "markdown",
                 "pagesDir": "pages",
             },
         }
         (stage_root / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
-        write_router(stage_root / "router.md", records)
+        write_router(markdown_root / "wiki-index.md", records)
 
         if out_root.exists():
             shutil.rmtree(out_root)
         stage_root.rename(out_root)
         print(f"[wiki-docs] wrote {out_root / 'schema.json'}")
         print(f"[wiki-docs] wrote {out_root / 'manifest.json'}")
-        print(f"[wiki-docs] wrote {out_root / 'router.md'}")
+        print(f"[wiki-docs] wrote {out_root / 'markdown' / 'wiki-index.md'}")
     finally:
         if args.keep_browser_open:
             print("[wiki-docs] leaving Chrome open")
