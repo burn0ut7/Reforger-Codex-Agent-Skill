@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reforger"
+  short_description: "Evidence-grounded Reforger coding agent"
+  default_prompt: "Use $reforger to implement or investigate this Arma Reforger mod task."

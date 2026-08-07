@@ -1,0 +1,7 @@
+interface:
+  display_name: "Reforger Workbench Edit"
+  short_description: "Exact MCP-driven Reforger editor mutations"
+  default_prompt: "Use $reforger-workbench-edit to perform this exact live Workbench mutation and verify its persisted state."
+
+policy:
+  allow_implicit_invocation: true

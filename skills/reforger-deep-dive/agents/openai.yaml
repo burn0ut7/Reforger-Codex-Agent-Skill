@@ -1,0 +1,7 @@
+interface:
+  display_name: "Reforger Deep Dive"
+  short_description: "Read-only forensic Reforger investigation"
+  default_prompt: "Use $reforger-deep-dive to investigate this difficult Reforger issue and produce an evidence dossier."
+
+policy:
+  allow_implicit_invocation: true
