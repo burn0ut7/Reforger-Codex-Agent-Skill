@@ -1,0 +1,7 @@
+interface:
+  display_name: "Reforger Gauntlet"
+  short_description: "Drive a Reforger goal through evidence gates"
+  default_prompt: "Use $reforger-gauntlet to complete this goal: <goal>."
+
+policy:
+  allow_implicit_invocation: false
